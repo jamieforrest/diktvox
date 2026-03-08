@@ -42,7 +42,8 @@ def cli(
     click.echo(f"  {len(pages)} page(s) rendered.", err=True)
 
     # Step 2: Extract text via LLM vision
-    click.echo("Extracting text via LLM vision...", err=True)
+    click.echo(f"Extracting text via LLM vision (model: {model}, {len(pages)} page(s))...", err=True)
+    click.echo("  This may take a minute for large scores.", err=True)
     score_data = extract_text(pages, model=model, language=language, use_cache=not no_cache, pdf_path=pdf_path)
     click.echo(f"  Extracted {len(score_data.sections)} section(s).", err=True)
 

@@ -110,6 +110,8 @@ def extract_text(
     if use_cache and pdf_path is not None:
         cached = _load_cache(pdf_path)
         if cached is not None:
+            import click
+            click.echo("  Using cached extraction result.", err=True)
             return cached
 
     # Build the message content with all page images
