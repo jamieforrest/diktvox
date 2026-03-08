@@ -65,7 +65,7 @@ diktvox score.pdf \
   --language de \
   --ipa-backend espeak \
   --rules rules/de_standard.yaml \
-  --model claude-sonnet-4-20250514 \
+  --model claude-sonnet-4-5-20250929 \
   --format md
 
 # Use the LLM backend for IPA (no espeak-ng install needed)
