@@ -74,7 +74,7 @@ diktvox score.pdf \
   --language de \
   --ipa-backend espeak \
   --rules rules/de_standard.yaml \
-  --model gemini/gemini-2.0-flash \
+  --model gemini/gemini-2.5-flash \
   --format md
 
 # Use the LLM backend for IPA (no espeak-ng install needed)
