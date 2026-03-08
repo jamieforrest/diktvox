@@ -15,6 +15,7 @@ authors = [
 dependencies = [
     "click>=8.0",
     "litellm>=1.0",
+    "Pillow>=10.0",
     "pypdfium2>=4.0",
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
