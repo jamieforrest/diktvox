@@ -141,10 +141,27 @@ def extract_text(
         ],
         response_format={"type": "json_object"},
         temperature=0.0,
+        max_tokens=16384,
     )
 
-    raw_text = response.choices[0].message.content
-    data = json.loads(raw_text)
+    choice = response.choices[0]
+    if choice.finish_reason != "stop":
+        import click
+        raise click.ClickException(
+            f"LLM response was truncated (finish_reason={choice.finish_reason}). "
+            f"The score may be too large for a single extraction call. "
+            f"Try a shorter PDF or a model with a larger output context."
+        )
+
+    raw_text = choice.message.content
+    try:
+        data = json.loads(raw_text)
+    except json.JSONDecodeError as e:
+        import click
+        raise click.ClickException(
+            f"LLM returned invalid JSON: {e}. "
+            f"Try re-running with --no-cache or a different model."
+        )
 
     # Validate language
     detected = data.get("language", language)
