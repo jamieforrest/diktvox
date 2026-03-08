@@ -43,7 +43,7 @@ def transcribe(
         from diktvox.ipa.llm import llm_transcribe
 
         def transcribe_fn(text: str, lang: str) -> str:
-            return llm_transcribe(text, lang=lang, model=model or "claude-sonnet-4-20250514")
+            return llm_transcribe(text, lang=lang, model=model or "anthropic/claude-sonnet-4-20250514")
     else:
         raise ValueError(f"Unknown IPA backend: {backend}")
 

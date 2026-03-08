@@ -3,6 +3,9 @@
 import pathlib
 
 import click
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from diktvox.extract import extract_text
 from diktvox.format import format_markdown
@@ -16,7 +19,7 @@ from diktvox.pdf import render_pages
 @click.option("--language", default="de", help="Language code (default: de). v1 supports German only.")
 @click.option("--ipa-backend", type=click.Choice(["espeak", "llm"]), default="espeak", help="IPA transcription backend.")
 @click.option("--rules", "rules_path", type=click.Path(exists=True, path_type=pathlib.Path), default=None, help="Custom YAML rules file for singing conventions.")
-@click.option("--model", default="claude-sonnet-4-20250514", help="LiteLLM model string for the vision LLM.")
+@click.option("--model", default="anthropic/claude-sonnet-4-20250514", help="LiteLLM model string for the vision LLM.")
 @click.option("--format", "output_format", type=click.Choice(["md"]), default="md", help="Output format.")
 @click.option("--no-cache", is_flag=True, default=False, help="Disable PDF extraction caching.")
 def cli(

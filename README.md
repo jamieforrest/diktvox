@@ -40,7 +40,14 @@ brew install espeak-ng
 
 ### Set your LLM API key
 
-diktvox uses [LiteLLM](https://github.com/BerriAI/litellm) so you can use any supported provider. Set the appropriate environment variable:
+diktvox uses [LiteLLM](https://github.com/BerriAI/litellm) so you can use any supported provider. Copy the sample env file and fill in your key:
+
+```bash
+cp .env.sample .env
+# Edit .env and add your API key
+```
+
+Or export environment variables directly:
 
 ```bash
 export ANTHROPIC_API_KEY=sk-...    # for Claude models
@@ -49,6 +56,8 @@ export OPENAI_API_KEY=sk-...       # for GPT-4o
 # or
 export GEMINI_API_KEY=...          # for Gemini
 ```
+
+The `.env` file is loaded automatically at startup and is already in `.gitignore`.
 
 ## Usage
 
@@ -88,7 +97,7 @@ diff espeak_output.md llm_output.md
 | `--language` | `de` | Language code (v1: German only) |
 | `--ipa-backend` | `espeak` | IPA engine: `espeak` or `llm` |
 | `--rules` | `rules/de_standard.yaml` | Custom YAML rules file for singing conventions |
-| `--model` | `claude-sonnet-4-20250514` | LiteLLM model string for vision |
+| `--model` | `anthropic/claude-sonnet-4-20250514` | LiteLLM model string for vision |
 | `--format` | `md` | Output format |
 | `--no-cache` | off | Disable PDF extraction caching |
 
