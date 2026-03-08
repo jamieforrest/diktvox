@@ -32,7 +32,8 @@ def espeak_transcribe(text: str, language: str = "de") -> str:
     espeak_bin = _find_espeak()
 
     result = subprocess.run(
-        [espeak_bin, "--ipa", "-q", "-v", language, text],
+        [espeak_bin, "--ipa", "-q", "-v", language],
+        input=text,
         capture_output=True,
         text=True,
         timeout=30,
