@@ -1,6 +1,7 @@
 """LLM-based IPA transcription backend."""
 
 import json
+import re
 import time
 
 import click
@@ -15,13 +16,55 @@ Apply standard singing diction conventions:
 final -er, ich-laut after front vowels, ach-laut after back vowels, etc.)
 - Preserve word boundaries with spaces.
 
-Respond with valid JSON only: an object with a "results" key containing an array of strings, \
-one IPA transcription per input line, in the same order. Example:
-{"results": ["ˈaʊfɛɐ̯ˌʃteːn", "ʃtaʊp"]}
+Respond with valid JSON only, no markdown fencing or explanation. Use this exact format:
+{"results": ["ipa line 1", "ipa line 2", ...]}
 """
 
 _MAX_RETRIES = 4
 _BACKOFF_DELAYS = [2, 4, 8, 16]
+
+# Match JSON object in LLM output that may contain markdown fencing or preamble
+_JSON_EXTRACT_RE = re.compile(r"\{[^{}]*\"results\"\s*:\s*\[.*?\]\s*\}", re.DOTALL)
+
+
+def _parse_json_response(content: str, expected_count: int) -> list[str]:
+    """Parse JSON results from LLM response, handling markdown fencing and preamble."""
+    if not content:
+        raise click.ClickException(
+            "LLM returned empty response for IPA transcription. "
+            "Try a different --ipa-model or use --ipa-backend=espeak."
+        )
+
+    # Try direct parse first
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError:
+        # Try extracting JSON from markdown code blocks or surrounding text
+        match = _JSON_EXTRACT_RE.search(content)
+        if match:
+            try:
+                data = json.loads(match.group())
+            except json.JSONDecodeError:
+                data = None
+        else:
+            data = None
+
+    if data is None or "results" not in data:
+        # Show a truncated preview of what we got
+        preview = content[:200] + ("..." if len(content) > 200 else "")
+        raise click.ClickException(
+            f"LLM did not return valid JSON with a 'results' array.\n"
+            f"Try a different --ipa-model or use --ipa-backend=espeak.\n"
+            f"Response preview: {preview}"
+        )
+
+    results = data["results"]
+    if len(results) != expected_count:
+        raise click.ClickException(
+            f"LLM returned {len(results)} transcriptions for {expected_count} inputs. "
+            f"Try a different model or use --ipa-backend=espeak."
+        )
+    return [r.strip() for r in results]
 
 
 def llm_transcribe_batch(texts: list[str], *, lang: str, model: str) -> list[str]:
@@ -51,23 +94,12 @@ def llm_transcribe_batch(texts: list[str], *, lang: str, model: str) -> list[str
                     {"role": "system", "content": _SYSTEM_PROMPT},
                     {"role": "user", "content": user_content},
                 ],
-                response_format={"type": "json_object"},
                 temperature=0.0,
             )
-            content = response.choices[0].message.content.strip()
-            try:
-                data = json.loads(content)
-            except json.JSONDecodeError as e:
-                raise click.ClickException(
-                    f"LLM returned invalid JSON for IPA batch transcription: {e}"
-                )
-            results = data.get("results", [])
-            if len(results) != len(texts):
-                raise click.ClickException(
-                    f"LLM returned {len(results)} transcriptions for {len(texts)} inputs. "
-                    f"Try a different model or use --ipa-backend=espeak."
-                )
-            return [r.strip() for r in results]
+            content = response.choices[0].message.content or ""
+            return _parse_json_response(content.strip(), len(texts))
+        except click.ClickException:
+            raise
         except litellm.exceptions.RateLimitError as e:
             last_exc = e
             if attempt < _MAX_RETRIES:
