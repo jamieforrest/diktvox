@@ -9,7 +9,6 @@ load_dotenv()
 
 from diktvox.extract import extract_text
 from diktvox.format import format_markdown
-from diktvox.format_pdf import format_pdf
 from diktvox.ipa import transcribe
 from diktvox.pdf import render_pages
 
@@ -70,6 +69,14 @@ def cli(
             click.echo(md)
 
     if "pdf" in formats:
+        try:
+            from diktvox.format_pdf import format_pdf
+        except ImportError:
+            raise click.ClickException(
+                "PDF output requires the 'weasyprint' and 'markdown' packages plus system libraries.\n"
+                "  pip install 'diktvox[pdf]'\n"
+                "See https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation"
+            )
         click.echo("Generating PDF...", err=True)
         pdf_bytes = format_pdf(md)
         if output:

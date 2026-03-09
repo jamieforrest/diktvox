@@ -1,8 +1,5 @@
 """PDF output generation from Markdown content."""
 
-import markdown
-from weasyprint import HTML
-
 
 _CSS = """
 @page {
@@ -67,6 +64,9 @@ def format_pdf(md_content: str) -> bytes:
     Raises:
         ImportError: If *weasyprint* is not installed.
     """
+    import markdown
+    from weasyprint import HTML
+
     html_body = markdown.markdown(md_content, extensions=["tables"])
     html_doc = (
         "<!doctype html><html><head>"

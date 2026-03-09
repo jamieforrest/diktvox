@@ -26,6 +26,26 @@ pip install -e .
 pip install -e ".[dev]"
 ```
 
+### Install PDF output support
+
+PDF output (`--format pdf`) requires [WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation), which depends on system libraries (Pango, GObject, etc.).
+
+1. Install system dependencies:
+
+```bash
+# macOS
+brew install pango gdk-pixbuf libffi
+
+# Linux (Debian/Ubuntu)
+sudo apt install libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf2.0-0
+```
+
+2. Install the Python packages:
+
+```bash
+pip install -e ".[pdf]"
+```
+
 ### Install espeak-ng
 
 Required only when using `--ipa-backend espeak` (the default).
