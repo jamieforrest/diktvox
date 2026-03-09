@@ -69,16 +69,17 @@ def cli(
             click.echo(md)
 
     if "pdf" in formats:
+        from diktvox.format_pdf import format_pdf
+        click.echo("Generating PDF...", err=True)
         try:
-            from diktvox.format_pdf import format_pdf
+            pdf_bytes = format_pdf(md)
         except (ImportError, OSError):
             raise click.ClickException(
                 "PDF output requires the 'weasyprint' and 'markdown' packages plus system libraries.\n"
                 "  pip install 'diktvox[pdf]'\n"
+                "  On macOS: brew install pango gdk-pixbuf libffi\n"
                 "See https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation"
             )
-        click.echo("Generating PDF...", err=True)
-        pdf_bytes = format_pdf(md)
         if output:
             pdf_path = output.with_suffix(".pdf")
             pdf_path.write_bytes(pdf_bytes)
