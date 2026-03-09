@@ -19,7 +19,8 @@ from diktvox.pdf import render_pages
 @click.option("--language", default="de", help="Language code (default: de). v1 supports German only.")
 @click.option("--ipa-backend", type=click.Choice(["espeak", "llm"]), default="espeak", help="IPA transcription backend.")
 @click.option("--rules", "rules_path", type=click.Path(exists=True, path_type=pathlib.Path), default=None, help="Custom YAML rules file for singing conventions.")
-@click.option("--model", default="anthropic/claude-sonnet-4-20250514", help="LiteLLM model string for the vision LLM.")
+@click.option("--model", default="anthropic/claude-sonnet-4-20250514", help="LiteLLM model for text extraction (vision-capable).")
+@click.option("--ipa-model", default=None, help="LiteLLM model for IPA transcription (only used with --ipa-backend=llm). Defaults to --model.")
 @click.option("--format", "output_format", type=click.Choice(["md"]), default="md", help="Output format.")
 @click.option("--no-cache", is_flag=True, default=False, help="Disable PDF extraction caching.")
 def cli(
@@ -29,12 +30,16 @@ def cli(
     ipa_backend: str,
     rules_path: pathlib.Path | None,
     model: str,
+    ipa_model: str | None,
     output_format: str,
     no_cache: bool,
 ) -> None:
     """Generate an IPA companion document from a choral score PDF."""
     if language != "de":
         raise click.ClickException(f"Language '{language}' is not yet supported. v1 supports German only.")
+
+    # Resolve IPA model: explicit --ipa-model, or fall back to --model
+    resolved_ipa_model = ipa_model or model
 
     # Step 1: Render PDF pages to images
     click.echo(f"Rendering pages from {pdf_path}...", err=True)
@@ -48,7 +53,7 @@ def cli(
 
     # Step 3: IPA transcription
     click.echo(f"Transcribing to IPA (backend: {ipa_backend})...", err=True)
-    transcribed = transcribe(score_data, backend=ipa_backend, language=language, rules_path=rules_path, model=model)
+    transcribed = transcribe(score_data, backend=ipa_backend, language=language, rules_path=rules_path, model=resolved_ipa_model)
 
     # Step 4: Format output
     click.echo("Formatting output...", err=True)
