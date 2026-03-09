@@ -1,6 +1,6 @@
 # diktvox
 
-IPA transcription companion for choral singers. Feed it a PDF score, get back a formatted guide with the original text and IPA phonemes organized by voice part. Supports configurable sung-language conventions (vocalized r, glottal onsets, etc). German first, more languages coming.
+IPA transcription companion for choral singers. Feed it a PDF score, get back a formatted guide with the original text, stress-marked IPA phonemes organized by voice part, and an auto-generated IPA symbol glossary. Supports configurable sung-language conventions (vocalized r, glottal onsets, alveolar trill, etc.) via YAML rules files. German first, more languages coming.
 
 ## Requirements
 
@@ -80,6 +80,9 @@ diktvox score.pdf \
 # Use the LLM backend for IPA (no espeak-ng install needed)
 diktvox score.pdf --ipa-backend llm -o output.md
 
+# Use a different model for IPA transcription than for text extraction
+diktvox score.pdf --ipa-backend llm --ipa-model openai/gpt-4o -o output.md
+
 # Skip cache (re-run LLM extraction even if the PDF was processed before)
 diktvox score.pdf --no-cache -o output.md
 
@@ -97,7 +100,8 @@ diff espeak_output.md llm_output.md
 | `--language` | `de` | Language code (v1: German only) |
 | `--ipa-backend` | `espeak` | IPA engine: `espeak` or `llm` |
 | `--rules` | `rules/de_standard.yaml` | Custom YAML rules file for singing conventions |
-| `--model` | `anthropic/claude-sonnet-4-20250514` | LiteLLM model string for vision |
+| `--model` | `anthropic/claude-sonnet-4-20250514` | LiteLLM model string for text extraction (vision-capable) |
+| `--ipa-model` | same as `--model` | LiteLLM model for IPA transcription (only with `--ipa-backend=llm`) |
 | `--format` | `md` | Output format |
 | `--no-cache` | off | Disable PDF extraction caching |
 
@@ -105,8 +109,8 @@ diff espeak_output.md llm_output.md
 
 Pronunciation rules live in YAML config files. The default German rules are in `rules/de_standard.yaml`. Rules are processed in four tiers (later tiers override earlier ones):
 
-1. **Substitutions** — simple phoneme swaps (e.g., uvular fricative → uvular trill)
-2. **Contextual** — position-dependent rules (e.g., vocalized r in final -er)
+1. **Substitutions** — simple phoneme swaps (e.g., uvular fricative → uvular trill, ʋ → v for sung German "w")
+2. **Contextual** — position-dependent rules (e.g., vocalized r in final -er, alveolar trill at word start, Auslautverhärtung fixes before liquids)
 3. **Insertions** — add phonemes (e.g., glottal stops before word-initial vowels)
 4. **Overrides** — word-level overrides (highest priority)
 
