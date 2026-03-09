@@ -1,5 +1,6 @@
-"""LLM-based IPA transcription backend (experimental)."""
+"""LLM-based IPA transcription backend."""
 
+import json
 import time
 
 import click
@@ -8,32 +9,39 @@ import litellm
 _SYSTEM_PROMPT = """\
 You are an expert in IPA (International Phonetic Alphabet) transcription for sung text.
 
-Given a text and a language, produce an accurate IPA transcription suitable for classical singers.
+Given numbered text lines and a language, produce an accurate IPA transcription for each line.
 Apply standard singing diction conventions:
 - For German: use standard sung German conventions (rolled r at word start, vocalized r in \
 final -er, ich-laut after front vowels, ach-laut after back vowels, etc.)
 - Preserve word boundaries with spaces.
-- Output ONLY the IPA transcription, nothing else. No brackets, no explanations.
+
+Respond with valid JSON only: an object with a "results" key containing an array of strings, \
+one IPA transcription per input line, in the same order. Example:
+{"results": ["ˈaʊfɛɐ̯ˌʃteːn", "ʃtaʊp"]}
 """
 
 _MAX_RETRIES = 4
 _BACKOFF_DELAYS = [2, 4, 8, 16]
 
 
-def llm_transcribe(text: str, *, lang: str, model: str) -> str:
-    """Transcribe text to IPA using an LLM.
+def llm_transcribe_batch(texts: list[str], *, lang: str, model: str) -> list[str]:
+    """Transcribe multiple texts to IPA in a single LLM call.
 
     Args:
-        text: Input text to transcribe.
+        texts: List of input texts to transcribe.
         lang: Language code.
         model: LiteLLM model identifier.
 
     Returns:
-        IPA transcription string.
-
-    Raises:
-        click.ClickException: On persistent rate limiting or other API errors.
+        List of IPA transcription strings, one per input text.
     """
+    if not texts:
+        return []
+
+    # Build numbered input
+    numbered_lines = "\n".join(f"{i+1}. {text}" for i, text in enumerate(texts))
+    user_content = f"Language: {lang}\n\n{numbered_lines}"
+
     last_exc = None
     for attempt in range(_MAX_RETRIES + 1):
         try:
@@ -41,11 +49,25 @@ def llm_transcribe(text: str, *, lang: str, model: str) -> str:
                 model=model,
                 messages=[
                     {"role": "system", "content": _SYSTEM_PROMPT},
-                    {"role": "user", "content": f"Language: {lang}\nText: {text}"},
+                    {"role": "user", "content": user_content},
                 ],
+                response_format={"type": "json_object"},
                 temperature=0.0,
             )
-            return response.choices[0].message.content.strip()
+            content = response.choices[0].message.content.strip()
+            try:
+                data = json.loads(content)
+            except json.JSONDecodeError as e:
+                raise click.ClickException(
+                    f"LLM returned invalid JSON for IPA batch transcription: {e}"
+                )
+            results = data.get("results", [])
+            if len(results) != len(texts):
+                raise click.ClickException(
+                    f"LLM returned {len(results)} transcriptions for {len(texts)} inputs. "
+                    f"Try a different model or use --ipa-backend=espeak."
+                )
+            return [r.strip() for r in results]
         except litellm.exceptions.RateLimitError as e:
             last_exc = e
             if attempt < _MAX_RETRIES:
