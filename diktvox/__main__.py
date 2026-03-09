@@ -71,7 +71,7 @@ def cli(
     if "pdf" in formats:
         try:
             from diktvox.format_pdf import format_pdf
-        except ImportError:
+        except (ImportError, OSError):
             raise click.ClickException(
                 "PDF output requires the 'weasyprint' and 'markdown' packages plus system libraries.\n"
                 "  pip install 'diktvox[pdf]'\n"
