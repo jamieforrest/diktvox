@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diktvox"
+version = "0.1.0"
+description = "IPA transcription companion for choral singers"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Jamie Forrest" },
+]
+dependencies = [
+    "click>=8.0",
+    "litellm>=1.0",
+    "Pillow>=10.0",
+    "pypdfium2>=4.0",
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[project.scripts]
+diktvox = "diktvox.__main__:cli"
+
+[tool.setuptools.packages.find]
+include = ["diktvox*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

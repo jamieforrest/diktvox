@@ -1,0 +1,91 @@
+language: de
+name: "Standard sung German"
+description: "Default conventions for classical sung German"
+
+# Explicit processing order — last tier wins on conflicts
+processing_order:
+  - substitutions
+  - contextual
+  - insertions
+  - overrides
+
+# Tier 1: Simple phoneme-to-phoneme replacements
+# These always apply regardless of position
+substitutions:
+  "ʁ": "ʀ"  # default: uvular fricative → uvular trill
+  "ɜ": "ɐ"  # espeak outputs English mid-central [ɜ] for German vocalized -er; should be [ɐ]
+  "ʋ": "v"  # labiodental approximant → fricative; standard for sung German "w"
+
+# Tier 2: Position-dependent rules
+contextual:
+  - match: "ʁ"
+    position: word_final
+    after: vowel
+    replace: "ɐ"
+    enabled: true
+
+  - match: "ʁ"
+    position: intervocalic
+    replace: "ɾ"
+    enabled: true
+
+  - match: "ʁ"
+    position: word_initial
+    replace: "r"
+    enabled: true
+
+  - match: "ɪk"
+    position: word_final
+    after_grapheme: "ig"
+    replace: "ɪç"
+    enabled: true
+
+  # Fix espeak over-applied Auslautverhärtung before liquids (/l/, /r/).
+  # German final devoicing only applies at word/syllable boundaries, not
+  # before liquids within the same morpheme (e.g., sterb+lich, lieb+lich).
+  - match: "p"
+    position: before_liquid
+    after_grapheme: "bl"
+    replace: "b"
+    enabled: true
+
+  - match: "p"
+    position: before_liquid
+    after_grapheme: "br"
+    replace: "b"
+    enabled: true
+
+  - match: "t"
+    position: before_liquid
+    after_grapheme: "dl"
+    replace: "d"
+    enabled: true
+
+  - match: "t"
+    position: before_liquid
+    after_grapheme: "dr"
+    replace: "d"
+    enabled: true
+
+  - match: "k"
+    position: before_liquid
+    after_grapheme: "gl"
+    replace: "ɡ"
+    enabled: true
+
+  - match: "k"
+    position: before_liquid
+    after_grapheme: "gr"
+    replace: "ɡ"
+    enabled: true
+
+# Tier 3: Insertion rules
+insertions:
+  - insert: "ʔ"
+    position: before_word_initial_vowel
+    enabled: true
+
+# Tier 4: Word-level overrides (highest priority, always wins)
+overrides:
+  "Herr": "hɛr"
+  "Kirche": "kɪʁçə"
