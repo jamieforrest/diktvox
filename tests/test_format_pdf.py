@@ -62,7 +62,7 @@ class TestCliPdfFormat:
         # Should fail because either the file doesn't exist or because no -o given
         assert result.exit_code != 0
 
-    def test_format_choices(self):
+    def test_format_rejects_invalid(self):
         from diktvox.__main__ import cli
 
         runner = CliRunner()
@@ -70,12 +70,11 @@ class TestCliPdfFormat:
         assert result.exit_code != 0
         assert "invalid" in result.output.lower() or "Invalid value" in result.output
 
-    def test_md_plus_pdf_accepted(self):
-        """md+pdf should be a valid format choice."""
+    def test_multiple_formats_accepted(self):
+        """--format md --format pdf should be accepted."""
         from diktvox.__main__ import cli
 
         runner = CliRunner()
-        # Will fail due to missing file, but the format option should be accepted
-        result = runner.invoke(cli, ["--format", "md+pdf", "nonexistent.pdf"])
-        # The error should be about the missing file, not the format choice
+        # Will fail due to missing file, but the format options should be accepted
+        result = runner.invoke(cli, ["--format", "md", "--format", "pdf", "nonexistent.pdf"])
         assert "Invalid value for '--format'" not in (result.output or "")
