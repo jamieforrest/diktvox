@@ -1,7 +1,5 @@
 """PDF output generation from Markdown content."""
 
-import markdown
-
 
 _CSS = """
 @page {
@@ -67,11 +65,12 @@ def format_pdf(md_content: str) -> bytes:
         ImportError: If *weasyprint* is not installed.
     """
     try:
+        import markdown
         from weasyprint import HTML  # noqa: WPS433
     except ImportError:
         raise ImportError(
-            "PDF output requires the 'weasyprint' package. "
-            "Install it with:  pip install 'diktvox[pdf]'"
+            "PDF output requires the 'weasyprint' and 'markdown' packages. "
+            "Install them with:  pip install 'diktvox[pdf]'"
         )
 
     html_body = markdown.markdown(md_content, extensions=["tables"])
