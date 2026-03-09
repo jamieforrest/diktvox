@@ -21,7 +21,7 @@ from diktvox.pdf import render_pages
 @click.option("--rules", "rules_path", type=click.Path(exists=True, path_type=pathlib.Path), default=None, help="Custom YAML rules file for singing conventions.")
 @click.option("--model", default="anthropic/claude-sonnet-4-20250514", help="LiteLLM model for text extraction (vision-capable).")
 @click.option("--ipa-model", default=None, help="LiteLLM model for IPA transcription (only used with --ipa-backend=llm). Defaults to --model.")
-@click.option("--format", "output_format", type=click.Choice(["md"]), default="md", help="Output format.")
+@click.option("--format", "output_formats", type=click.Choice(["md", "pdf"]), multiple=True, default=("md",), help="Output format(s). May be repeated, e.g. --format md --format pdf.")
 @click.option("--no-cache", is_flag=True, default=False, help="Disable PDF extraction caching.")
 def cli(
     pdf_path: pathlib.Path,
@@ -31,7 +31,7 @@ def cli(
     rules_path: pathlib.Path | None,
     model: str,
     ipa_model: str | None,
-    output_format: str,
+    output_formats: tuple[str, ...],
     no_cache: bool,
 ) -> None:
     """Generate an IPA companion document from a choral score PDF."""
@@ -58,12 +58,34 @@ def cli(
     # Step 4: Format output
     click.echo("Formatting output...", err=True)
     md = format_markdown(transcribed)
+    formats = set(output_formats)
 
-    if output:
-        output.write_text(md, encoding="utf-8")
-        click.echo(f"Written to {output}", err=True)
-    else:
-        click.echo(md)
+    if "md" in formats:
+        if output:
+            md_path = output.with_suffix(".md")
+            md_path.write_text(md, encoding="utf-8")
+            click.echo(f"Written to {md_path}", err=True)
+        else:
+            click.echo(md)
+
+    if "pdf" in formats:
+        from diktvox.format_pdf import format_pdf
+        click.echo("Generating PDF...", err=True)
+        try:
+            pdf_bytes = format_pdf(md)
+        except (ImportError, OSError):
+            raise click.ClickException(
+                "PDF output requires the 'weasyprint' and 'markdown' packages plus system libraries.\n"
+                "  pip install 'diktvox[pdf]'\n"
+                "  On macOS: brew install pango gdk-pixbuf libffi\n"
+                "See https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation"
+            )
+        if output:
+            pdf_path = output.with_suffix(".pdf")
+            pdf_path.write_bytes(pdf_bytes)
+            click.echo(f"Written to {pdf_path}", err=True)
+        else:
+            raise click.ClickException("PDF output requires -o/--output (cannot write binary to stdout).")
 
 
 if __name__ == "__main__":
