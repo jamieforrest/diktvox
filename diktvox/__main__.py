@@ -9,6 +9,7 @@ load_dotenv()
 
 from diktvox.extract import extract_text
 from diktvox.format import format_markdown
+from diktvox.format_pdf import format_pdf
 from diktvox.ipa import transcribe
 from diktvox.pdf import render_pages
 
@@ -21,7 +22,7 @@ from diktvox.pdf import render_pages
 @click.option("--rules", "rules_path", type=click.Path(exists=True, path_type=pathlib.Path), default=None, help="Custom YAML rules file for singing conventions.")
 @click.option("--model", default="anthropic/claude-sonnet-4-20250514", help="LiteLLM model for text extraction (vision-capable).")
 @click.option("--ipa-model", default=None, help="LiteLLM model for IPA transcription (only used with --ipa-backend=llm). Defaults to --model.")
-@click.option("--format", "output_format", type=click.Choice(["md"]), default="md", help="Output format.")
+@click.option("--format", "output_format", type=click.Choice(["md", "pdf", "md+pdf"]), default="md", help="Output format.")
 @click.option("--no-cache", is_flag=True, default=False, help="Disable PDF extraction caching.")
 def cli(
     pdf_path: pathlib.Path,
@@ -59,11 +60,26 @@ def cli(
     click.echo("Formatting output...", err=True)
     md = format_markdown(transcribed)
 
-    if output:
-        output.write_text(md, encoding="utf-8")
-        click.echo(f"Written to {output}", err=True)
-    else:
-        click.echo(md)
+    write_md = output_format in ("md", "md+pdf")
+    write_pdf = output_format in ("pdf", "md+pdf")
+
+    if write_md:
+        if output:
+            md_path = output.with_suffix(".md") if write_pdf else output
+            md_path.write_text(md, encoding="utf-8")
+            click.echo(f"Written to {md_path}", err=True)
+        else:
+            click.echo(md)
+
+    if write_pdf:
+        click.echo("Generating PDF...", err=True)
+        pdf_bytes = format_pdf(md)
+        if output:
+            pdf_path = output.with_suffix(".pdf")
+            pdf_path.write_bytes(pdf_bytes)
+            click.echo(f"Written to {pdf_path}", err=True)
+        else:
+            raise click.ClickException("PDF output requires -o/--output (cannot write binary to stdout).")
 
 
 if __name__ == "__main__":
