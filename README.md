@@ -40,6 +40,12 @@ brew install pango gdk-pixbuf libffi
 sudo apt install libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf2.0-0
 ```
 
+On **Apple Silicon Macs**, Python may not find the Homebrew libraries automatically. Add this to your shell profile (`~/.zshrc`):
+
+```bash
+export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib
+```
+
 2. Install the Python packages:
 
 ```bash
