@@ -128,6 +128,32 @@ def _build_glossary(score: TranscribedScore) -> str:
     return "\n".join(lines)
 
 
+def _format_section_annotation(name: str) -> str:
+    """Format a section name into a Markdown annotation line.
+
+    Separates a leading rehearsal number (in brackets) from any trailing
+    tempo / expression marking so the output reads naturally:
+      ``**[31] Langsam (Slow). Misterioso.**``
+
+    If the name is purely a number: ``**[31]**``
+    If it has no leading number: ``**Langsam. Misterioso.**``
+    """
+    if not name:
+        return ""
+
+    # Try to split a leading integer rehearsal number from the rest
+    parts = name.split(None, 1)  # split on first whitespace
+    if parts[0].isdigit():
+        num = parts[0]
+        rest = parts[1] if len(parts) > 1 else ""
+        if rest:
+            return f"**[{num}] {rest}**"
+        return f"**[{num}]**"
+
+    # No leading number — show the name as-is (no brackets)
+    return f"**{name}**"
+
+
 def _group_voice_parts(section: TranscribedSection) -> list[tuple[str, str, str]]:
     """Group voice parts that share identical text and IPA.
 
@@ -193,8 +219,9 @@ def format_markdown(score: TranscribedScore) -> str:
             lines.append("")
 
         # Section annotation (rehearsal number / tempo marking)
-        if section.name:
-            lines.append(f"**[{section.name}]**")
+        annotation = _format_section_annotation(section.name)
+        if annotation:
+            lines.append(annotation)
             lines.append("")
 
         # Voice parts — grouped by identical content

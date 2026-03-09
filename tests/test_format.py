@@ -1,6 +1,6 @@
 """Tests for Markdown output formatting."""
 
-from diktvox.format import format_markdown, _group_voice_parts
+from diktvox.format import format_markdown, _format_section_annotation, _group_voice_parts
 from diktvox.models import TranscribedScore, TranscribedSection, TranscribedVoicePart
 
 
@@ -151,6 +151,58 @@ class TestFormatMarkdown:
         )
         md = format_markdown(score)
         assert "**[]**" not in md
+
+
+    def test_rehearsal_number_with_tempo_marking(self):
+        """Rehearsal number should be bracketed, tempo marking outside."""
+        score = TranscribedScore(
+            title="Test",
+            sections=[
+                TranscribedSection(
+                    name="31 Langsam (Slow). Misterioso.",
+                    page_number=4,
+                    all_parts_same=True,
+                    voice_parts=[
+                        TranscribedVoicePart(name="All", text="Hello", ipa="hɛloː"),
+                    ],
+                ),
+            ],
+        )
+        md = format_markdown(score)
+        assert "**[31] Langsam (Slow). Misterioso.**" in md
+
+    def test_tempo_marking_without_rehearsal_number(self):
+        """Tempo marking without a rehearsal number should appear without brackets."""
+        score = TranscribedScore(
+            title="Test",
+            sections=[
+                TranscribedSection(
+                    name="Allegro vivace",
+                    page_number=2,
+                    all_parts_same=True,
+                    voice_parts=[
+                        TranscribedVoicePart(name="All", text="Hello", ipa="hɛloː"),
+                    ],
+                ),
+            ],
+        )
+        md = format_markdown(score)
+        assert "**Allegro vivace**" in md
+        assert "[Allegro" not in md
+
+
+class TestFormatSectionAnnotation:
+    def test_empty_name(self):
+        assert _format_section_annotation("") == ""
+
+    def test_number_only(self):
+        assert _format_section_annotation("31") == "**[31]**"
+
+    def test_number_with_marking(self):
+        assert _format_section_annotation("31 Langsam. Misterioso.") == "**[31] Langsam. Misterioso.**"
+
+    def test_text_only(self):
+        assert _format_section_annotation("Allegro vivace") == "**Allegro vivace**"
 
 
 class TestGroupVoiceParts:
