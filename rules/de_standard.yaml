@@ -39,6 +39,45 @@ contextual:
     replace: "ɪç"
     enabled: true
 
+  # Fix espeak over-applied Auslautverhärtung before liquids (/l/, /r/).
+  # German final devoicing only applies at word/syllable boundaries, not
+  # before liquids within the same morpheme (e.g., sterb+lich, lieb+lich).
+  - match: "p"
+    position: before_liquid
+    after_grapheme: "bl"
+    replace: "b"
+    enabled: true
+
+  - match: "p"
+    position: before_liquid
+    after_grapheme: "br"
+    replace: "b"
+    enabled: true
+
+  - match: "t"
+    position: before_liquid
+    after_grapheme: "dl"
+    replace: "d"
+    enabled: true
+
+  - match: "t"
+    position: before_liquid
+    after_grapheme: "dr"
+    replace: "d"
+    enabled: true
+
+  - match: "k"
+    position: before_liquid
+    after_grapheme: "gl"
+    replace: "ɡ"
+    enabled: true
+
+  - match: "k"
+    position: before_liquid
+    after_grapheme: "gr"
+    replace: "ɡ"
+    enabled: true
+
 # Tier 3: Insertion rules
 insertions:
   - insert: "ʔ"
@@ -49,13 +88,3 @@ insertions:
 overrides:
   "Herr": "hɛr"
   "Kirche": "kɪʁçə"
-  # espeak over-applies final devoicing before liquids (/l/, /r/)
-  "Unsterblich": "ˈʊnʃtˌɛɾblɪç"
-  "unsterblich": "ˈʊnʃtˌɛɾblɪç"
-  "Unsterbliches": "ˈʊnʃtˌɛɾblɪçəs"
-  "lieblich": "lˈiːblɪç"
-  "Lieblich": "lˈiːblɪç"
-  "möglich": "mˈøːɡlɪç"
-  "Möglich": "mˈøːɡlɪç"
-  "sterblich": "ˈʃtɛɾblɪç"
-  "Sterblich": "ˈʃtɛɾblɪç"

@@ -3,6 +3,7 @@
 import hashlib
 import json
 import pathlib
+import time
 
 import click
 import litellm
@@ -101,38 +102,77 @@ def _parse_response(data: dict) -> ScoreData:
     )
 
 
+_MAX_RETRIES = 4
+_BACKOFF_DELAYS = [2, 4, 8, 16]
+
+
 def _extract_page(page_b64: str, page_num: int, total_pages: int, model: str, language: str) -> dict:
-    """Extract text from a single page image."""
+    """Extract text from a single page image, with retry on rate limits."""
     content = [
         {"type": "text", "text": f"Page {page_num} of {total_pages}:"},
         {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{page_b64}"}},
         {"type": "text", "text": f"Extract all sung text from this page. The expected language is {language}."},
     ]
 
-    response = litellm.completion(
-        model=model,
-        messages=[
-            {"role": "system", "content": _PAGE_SYSTEM_PROMPT},
-            {"role": "user", "content": content},
-        ],
-        response_format={"type": "json_object"},
-        temperature=0.0,
-        max_tokens=8192,
-    )
+    last_exc = None
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            response = litellm.completion(
+                model=model,
+                messages=[
+                    {"role": "system", "content": _PAGE_SYSTEM_PROMPT},
+                    {"role": "user", "content": content},
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.0,
+                max_tokens=8192,
+            )
 
-    choice = response.choices[0]
-    if choice.finish_reason != "stop":
-        raise click.ClickException(
-            f"LLM response truncated on page {page_num} (finish_reason={choice.finish_reason})."
-        )
+            choice = response.choices[0]
+            if choice.finish_reason != "stop":
+                raise click.ClickException(
+                    f"LLM response truncated on page {page_num} (finish_reason={choice.finish_reason})."
+                )
 
-    try:
-        return json.loads(choice.message.content)
-    except json.JSONDecodeError as e:
-        raise click.ClickException(
-            f"LLM returned invalid JSON for page {page_num}: {e}. "
-            f"Try re-running with --no-cache or a different model."
-        )
+            try:
+                return json.loads(choice.message.content)
+            except json.JSONDecodeError as e:
+                raise click.ClickException(
+                    f"LLM returned invalid JSON for page {page_num}: {e}. "
+                    f"Try re-running with --no-cache or a different model."
+                )
+        except litellm.exceptions.RateLimitError as e:
+            last_exc = e
+            if attempt < _MAX_RETRIES:
+                delay = _BACKOFF_DELAYS[attempt]
+                click.echo(
+                    f"  Rate limited on page {page_num}. "
+                    f"Retrying in {delay}s (attempt {attempt + 1}/{_MAX_RETRIES})...",
+                    err=True,
+                )
+                time.sleep(delay)
+            else:
+                raise click.ClickException(
+                    f"Rate limited on page {page_num} after {_MAX_RETRIES} retries. "
+                    f"Try again later or use a different model.\n"
+                    f"Original error: {e}"
+                )
+        except (litellm.exceptions.APIError, litellm.exceptions.APIConnectionError) as e:
+            last_exc = e
+            if attempt < _MAX_RETRIES:
+                delay = _BACKOFF_DELAYS[attempt]
+                click.echo(
+                    f"  API error on page {page_num}. "
+                    f"Retrying in {delay}s (attempt {attempt + 1}/{_MAX_RETRIES})...",
+                    err=True,
+                )
+                time.sleep(delay)
+            else:
+                raise click.ClickException(
+                    f"API error on page {page_num} after {_MAX_RETRIES} retries: {e}"
+                )
+
+    raise click.ClickException(f"Failed to extract page {page_num} after {_MAX_RETRIES} retries: {last_exc}")
 
 
 def _merge_page_results(page_results: list[dict]) -> dict:

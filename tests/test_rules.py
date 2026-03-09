@@ -144,25 +144,65 @@ class TestEpsilonToSchwaSubstitution:
         assert "ɐ" in result
 
 
-class TestDevoicingOverrides:
-    """Test overrides that fix espeak's over-applied final devoicing."""
+class TestBeforeLiquidRevoicing:
+    """Test contextual rules that fix espeak's over-applied final devoicing before liquids."""
 
-    def test_unsterblich_override(self):
+    def test_p_to_b_before_liquid(self):
+        """p→b before /l/ when original text has 'bl' (e.g., Unsterblich)."""
         rules = Rules(
-            processing_order=["overrides"],
-            overrides={"Unsterblich": "ˈʊnʃtˌɛɾblɪç"},
+            processing_order=["contextual"],
+            contextual=[
+                ContextualRule(match="p", position="before_liquid", after_grapheme="bl", replace="b"),
+            ],
         )
-        # espeak would produce [p] instead of [b]
         result = apply_rules("ˈʊnʃtˌɛɾplɪç", "Unsterblich", rules)
-        assert result == "ˈʊnʃtˌɛɾblɪç"
+        assert "bl" in result
+        assert "pl" not in result
 
-    def test_lieblich_override(self):
+    def test_lieblich(self):
         rules = Rules(
-            processing_order=["overrides"],
-            overrides={"lieblich": "lˈiːblɪç"},
+            processing_order=["contextual"],
+            contextual=[
+                ContextualRule(match="p", position="before_liquid", after_grapheme="bl", replace="b"),
+            ],
         )
         result = apply_rules("lˈiːplɪç", "lieblich", rules)
         assert result == "lˈiːblɪç"
+
+    def test_k_to_g_before_liquid(self):
+        """k→ɡ before /l/ when original text has 'gl' (e.g., möglich)."""
+        rules = Rules(
+            processing_order=["contextual"],
+            contextual=[
+                ContextualRule(match="k", position="before_liquid", after_grapheme="gl", replace="ɡ"),
+            ],
+        )
+        result = apply_rules("mˈøːklɪç", "möglich", rules)
+        assert "ɡl" in result
+        assert "kl" not in result
+
+    def test_no_revoicing_without_grapheme(self):
+        """Legitimate voiceless stops before liquids should not be changed."""
+        rules = Rules(
+            processing_order=["contextual"],
+            contextual=[
+                ContextualRule(match="p", position="before_liquid", after_grapheme="bl", replace="b"),
+            ],
+        )
+        # "Platz" has legitimate /pl/ — no 'bl' in original text
+        result = apply_rules("plats", "Platz", rules)
+        assert result == "plats"
+
+    def test_no_revoicing_klasse(self):
+        """'Klasse' has legitimate /kl/ — no 'gl' in original text."""
+        rules = Rules(
+            processing_order=["contextual"],
+            contextual=[
+                ContextualRule(match="k", position="before_liquid", after_grapheme="gl", replace="ɡ"),
+            ],
+        )
+        result = apply_rules("klasə", "Klasse", rules)
+        assert result == "klasə"
 
 
 class TestLoadRules:

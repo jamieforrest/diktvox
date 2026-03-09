@@ -18,6 +18,7 @@ _FRONT_VOWELS = set("ieæɛøœyʏɪεeː")
 _BACK_VOWELS = set("aɑɒoɔuʊ")
 _ALL_VOWELS = _FRONT_VOWELS | _BACK_VOWELS | set("ə")
 _CONSONANTS_PATTERN = re.compile(r"[bcdfghjklmnpqrstvwxzðŋɡʃʒθçʁʀɾɲɫ]", re.IGNORECASE)
+_LIQUIDS = set("lɾrɫ")
 
 
 @dataclass
@@ -123,6 +124,8 @@ def _check_position(ipa_word: str, match_start: int, match_end: int, position: s
         return match_start > 0 and ipa_word[match_start - 1] in _FRONT_VOWELS
     elif position == "after_back_vowel":
         return match_start > 0 and ipa_word[match_start - 1] in _BACK_VOWELS
+    elif position == "before_liquid":
+        return match_end < len(ipa_word) and ipa_word[match_end] in _LIQUIDS
     elif position == "syllable_final":
         # Approximate: treat as word-final or before a consonant cluster
         return match_end == len(ipa_word) or (
