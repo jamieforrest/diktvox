@@ -231,3 +231,23 @@ class TestGlossaryDiversity:
         example_words = [e.split("[")[0].strip() for e in examples.values() if "[" in e]
         if len(example_words) > 1:
             assert len(set(example_words)) > 1, "All symbols should not use the same example word"
+
+    def test_short_o_umlaut_in_glossary(self):
+        """The [ø] symbol should appear in the glossary, not as undocumented."""
+        score = TranscribedScore(
+            title="Test",
+            sections=[
+                TranscribedSection(
+                    name="S1",
+                    voice_parts=[
+                        TranscribedVoicePart(
+                            name="All",
+                            text="Hör'",
+                            ipa="høːɐ",
+                        )
+                    ],
+                ),
+            ],
+        )
+        md = format_markdown(score)
+        assert "undocumented" not in md

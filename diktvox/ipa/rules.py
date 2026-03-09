@@ -19,6 +19,7 @@ _BACK_VOWELS = set("aɑɒoɔuʊ")
 _ALL_VOWELS = _FRONT_VOWELS | _BACK_VOWELS | set("ə")
 _CONSONANTS_PATTERN = re.compile(r"[bcdfghjklmnpqrstvwxzðŋɡʃʒθçʁʀɾɲɫ]", re.IGNORECASE)
 _LIQUIDS = set("lɾrɫ")
+_STRESS_MARKS = set("ˈˌ")
 
 
 @dataclass
@@ -107,7 +108,8 @@ def _apply_substitutions(ipa: str, rules: Rules) -> str:
 def _check_position(ipa_word: str, match_start: int, match_end: int, position: str, rule: ContextualRule) -> bool:
     """Check if a match at the given position satisfies the position constraint."""
     if position == "word_initial":
-        return match_start == 0
+        # Skip leading stress marks (ˈ, ˌ) when checking word-initial position
+        return match_start == 0 or all(c in _STRESS_MARKS for c in ipa_word[:match_start])
     elif position == "word_final":
         return match_end == len(ipa_word)
     elif position == "word_medial":
@@ -197,8 +199,13 @@ def _apply_insertions(ipa: str, rules: Rules) -> str:
             if not rule.enabled:
                 continue
             if rule.position == "before_word_initial_vowel":
-                if word and _is_vowel(word[0]):
-                    word = rule.insert + word
+                # Find first non-stress-mark character
+                first_phoneme = 0
+                while first_phoneme < len(word) and word[first_phoneme] in _STRESS_MARKS:
+                    first_phoneme += 1
+                if first_phoneme < len(word) and _is_vowel(word[first_phoneme]):
+                    # Insert glottal stop after any leading stress marks
+                    word = word[:first_phoneme] + rule.insert + word[first_phoneme:]
 
         result_words.append(word)
 

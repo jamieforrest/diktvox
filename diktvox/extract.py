@@ -26,11 +26,15 @@ Preserve punctuation and apostrophes.
 relying purely on visual OCR (choral score OCR is unreliable due to syllable breaks, hyphens, and \
 interleaved notation). Fill in any gaps or correct OCR errors using the canonical text.
 6. Include rehearsal numbers and tempo/expression markings (e.g., "Langsam. Misterioso.") in the \
-section name when they are clearly visible in the score. If no rehearsal number is clearly associated \
-with the text, leave the name empty — do NOT invent labels like "Section 1" or "Continuing Text".
+section name when they are clearly visible in the score. Use just the number for rehearsal marks \
+(e.g., "44" not "Rehearsal 44"). If no rehearsal number or tempo marking is clearly associated \
+with the text, leave the name empty — do NOT invent labels like "Section 1", "Continuing Text", \
+"Opening Section", or any other fabricated name.
 7. Where voice parts share identical text in a section, set all_parts_same to true and provide \
 the text under a single voice part named "All". Where parts diverge, group parts that share \
-identical text together (e.g., "Soprano, Alto" as the name) and list differing groups separately.
+identical text together (e.g., "Soprano, Alto" as the name) and list differing groups separately. \
+Distinguish between solo passages and tutti entrances — if only one voice sings while others rest, \
+label it as that voice (e.g., "Alto") not "All".
 8. If a section continues from a previous page, name it with a "(continued)" suffix, \
 e.g., "Verse 1 (continued)".
 9. Continuous phrases that span a system break on the same page should stay together in one section, \

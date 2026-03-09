@@ -228,3 +228,63 @@ substitutions:
         f.write_text(yaml_content)
         rules = load_rules(f)
         assert rules.substitutions == {"ʁ": "r"}
+
+
+class TestStressMarkHandling:
+    """Rules should work correctly when IPA contains stress marks."""
+
+    def test_word_initial_with_stress_mark(self):
+        """Word-initial rule should fire even with a leading stress mark."""
+        rules = Rules(
+            processing_order=["contextual"],
+            contextual=[
+                ContextualRule(match="ʀ", position="word_initial", replace="r", after=None),
+            ],
+        )
+        result = apply_rules("ˈʀiːf", "rief", rules)
+        assert result == "ˈriːf"
+
+    def test_word_initial_without_stress_mark(self):
+        """Word-initial rule should still work without stress marks."""
+        rules = Rules(
+            processing_order=["contextual"],
+            contextual=[
+                ContextualRule(match="ʀ", position="word_initial", replace="r", after=None),
+            ],
+        )
+        result = apply_rules("ʀiːf", "rief", rules)
+        assert result == "riːf"
+
+    def test_glottal_stop_with_stress_mark(self):
+        """Glottal stop insertion should work with leading stress marks."""
+        rules = Rules(
+            processing_order=["insertions"],
+            insertions=[
+                InsertionRule(insert="ʔ", position="before_word_initial_vowel"),
+            ],
+        )
+        result = apply_rules("ˈaʊ̯f", "auf", rules)
+        assert result == "ˈʔaʊ̯f"
+
+    def test_glottal_stop_with_secondary_stress(self):
+        rules = Rules(
+            processing_order=["insertions"],
+            insertions=[
+                InsertionRule(insert="ʔ", position="before_word_initial_vowel"),
+            ],
+        )
+        result = apply_rules("ˌaʊ̯f", "auf", rules)
+        assert result == "ˌʔaʊ̯f"
+
+
+class TestLabiodentalApproximant:
+    """Test ʋ → v substitution for sung German."""
+
+    def test_v_substitution(self):
+        rules = Rules(
+            processing_order=["substitutions"],
+            substitutions={"ʋ": "v"},
+        )
+        result = apply_rules("ˈalbətsʋɪŋɐ", "Allbezwinger", rules)
+        assert "ʋ" not in result
+        assert "vɪŋɐ" in result

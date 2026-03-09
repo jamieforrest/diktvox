@@ -14,6 +14,8 @@ Given numbered text lines and a language, produce an accurate IPA transcription 
 Apply standard singing diction conventions:
 - For German: use standard sung German conventions (rolled r at word start, vocalized r in \
 final -er, ich-laut after front vowels, ach-laut after back vowels, etc.)
+- Include stress marks: use [ˈ] for primary stress and [ˌ] for secondary stress before the \
+stressed syllable.
 - Preserve word boundaries with spaces.
 
 Respond with valid JSON only, no markdown fencing or explanation. Use this exact format:
