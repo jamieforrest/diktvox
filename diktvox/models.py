@@ -18,6 +18,7 @@ class Section:
     name: str  # e.g. "Rehearsal 31", "Opening Chorale"
     voice_parts: list[VoicePart] = field(default_factory=list)
     all_parts_same: bool = False  # If True, all parts share the same text
+    page_number: int | None = None  # PDF page number where this section starts
 
 
 @dataclass
@@ -47,6 +48,7 @@ class TranscribedSection:
     name: str
     voice_parts: list[TranscribedVoicePart] = field(default_factory=list)
     all_parts_same: bool = False
+    page_number: int | None = None
 
 
 @dataclass

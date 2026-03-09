@@ -58,6 +58,7 @@ def transcribe(
             name=section.name,
             voice_parts=t_parts,
             all_parts_same=section.all_parts_same,
+            page_number=section.page_number,
         ))
 
     return TranscribedScore(

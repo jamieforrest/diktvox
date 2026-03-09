@@ -13,6 +13,7 @@ processing_order:
 # These always apply regardless of position
 substitutions:
   "ʁ": "ʀ"  # default: uvular fricative → uvular trill
+  "ɜ": "ɐ"  # espeak outputs English mid-central [ɜ] for German vocalized -er; should be [ɐ]
 
 # Tier 2: Position-dependent rules
 contextual:
@@ -48,3 +49,13 @@ insertions:
 overrides:
   "Herr": "hɛr"
   "Kirche": "kɪʁçə"
+  # espeak over-applies final devoicing before liquids (/l/, /r/)
+  "Unsterblich": "ˈʊnʃtˌɛɾblɪç"
+  "unsterblich": "ˈʊnʃtˌɛɾblɪç"
+  "Unsterbliches": "ˈʊnʃtˌɛɾblɪçəs"
+  "lieblich": "lˈiːblɪç"
+  "Lieblich": "lˈiːblɪç"
+  "möglich": "mˈøːɡlɪç"
+  "Möglich": "mˈøːɡlɪç"
+  "sterblich": "ˈʃtɛɾblɪç"
+  "Sterblich": "ˈʃtɛɾblɪç"

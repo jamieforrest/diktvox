@@ -111,6 +111,33 @@ class TestMergePageResults:
         assert parts["Soprano"] == "La la la la"
         assert parts["Alto"] == "dum dum"
 
+    def test_page_number_preserved(self):
+        pages = [
+            {"title": "Piece", "composer": "", "edition": "", "language": "de", "sections": [
+                {"name": "31", "page_number": 4, "all_parts_same": True, "voice_parts": [{"name": "All", "text": "Hello"}]},
+            ]},
+            {"title": "", "composer": "", "edition": "", "language": "de", "sections": [
+                {"name": "32", "page_number": 5, "all_parts_same": True, "voice_parts": [{"name": "All", "text": "World"}]},
+            ]},
+        ]
+        merged = _merge_page_results(pages)
+        assert merged["sections"][0]["page_number"] == 4
+        assert merged["sections"][1]["page_number"] == 5
+
+    def test_continued_section_keeps_original_page(self):
+        pages = [
+            {"title": "", "composer": "", "edition": "", "language": "de", "sections": [
+                {"name": "31", "page_number": 4, "all_parts_same": True, "voice_parts": [{"name": "All", "text": "Start"}]},
+            ]},
+            {"title": "", "composer": "", "edition": "", "language": "de", "sections": [
+                {"name": "31 (continued)", "page_number": 5, "all_parts_same": True, "voice_parts": [{"name": "All", "text": "end"}]},
+            ]},
+        ]
+        merged = _merge_page_results(pages)
+        assert len(merged["sections"]) == 1
+        # page_number should be from the original section, not the continued one
+        assert merged["sections"][0]["page_number"] == 4
+
     def test_empty_pages_skipped(self):
         pages = [
             {"title": "Piece", "composer": "", "edition": "", "language": "de", "sections": [

@@ -122,6 +122,49 @@ class TestProcessingOrder:
         assert result == "kɪʁçə"
 
 
+class TestEpsilonToSchwaSubstitution:
+    """Test the ɜ → ɐ substitution for German vocalized -er."""
+
+    def test_epsilon_replaced_globally(self):
+        rules = Rules(
+            processing_order=["substitutions"],
+            substitutions={"ɜ": "ɐ"},
+        )
+        result = apply_rules("kˈʊɐtsɜ", "kurzer", rules)
+        assert "ɜ" not in result
+        assert result == "kˈʊɐtsɐ"
+
+    def test_multiple_occurrences(self):
+        rules = Rules(
+            processing_order=["substitutions"],
+            substitutions={"ɜ": "ɐ"},
+        )
+        result = apply_rules("vˈiːdɜ ˈalbɛtsvˌɪŋɜ", "Wieder Allbezwinger", rules)
+        assert "ɜ" not in result
+        assert "ɐ" in result
+
+
+class TestDevoicingOverrides:
+    """Test overrides that fix espeak's over-applied final devoicing."""
+
+    def test_unsterblich_override(self):
+        rules = Rules(
+            processing_order=["overrides"],
+            overrides={"Unsterblich": "ˈʊnʃtˌɛɾblɪç"},
+        )
+        # espeak would produce [p] instead of [b]
+        result = apply_rules("ˈʊnʃtˌɛɾplɪç", "Unsterblich", rules)
+        assert result == "ˈʊnʃtˌɛɾblɪç"
+
+    def test_lieblich_override(self):
+        rules = Rules(
+            processing_order=["overrides"],
+            overrides={"lieblich": "lˈiːblɪç"},
+        )
+        result = apply_rules("lˈiːplɪç", "lieblich", rules)
+        assert result == "lˈiːblɪç"
+
+
 class TestLoadRules:
     def test_load_default_german(self):
         rules_path = pathlib.Path(__file__).resolve().parent.parent / "rules" / "de_standard.yaml"

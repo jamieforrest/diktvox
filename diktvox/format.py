@@ -1,6 +1,8 @@
 """Markdown output formatting and IPA glossary generation."""
 
-from diktvox.models import TranscribedScore
+from collections import defaultdict
+
+from diktvox.models import TranscribedScore, TranscribedSection
 
 # Common IPA symbols with plain-English approximations
 _IPA_DESCRIPTIONS: dict[str, str] = {
@@ -29,7 +31,7 @@ _IPA_DESCRIPTIONS: dict[str, str] = {
     "ː": "long vowel marker",
     "ˈ": "primary stress",
     "ˌ": "secondary stress",
-    "̯": "non-syllabic marker",
+    "\u032f": "non-syllabic marker",
     "θ": '"th" in "think"',
     "ð": '"th" in "this"',
     "ʒ": '"s" in "measure"',
@@ -42,19 +44,51 @@ _IPA_DESCRIPTIONS: dict[str, str] = {
 def _collect_symbols(score: TranscribedScore) -> set[str]:
     """Collect all unique IPA symbols used in the transcription."""
     symbols: set[str] = set()
-    for section in score.sections:
-        for vp in section.voice_parts:
-            for char in vp.ipa:
-                if char not in " \t\n" and not char.isascii():
-                    symbols.add(char)
-                # Also check for multi-char symbols
-    # Check for known multi-char symbols
     all_ipa = " ".join(vp.ipa for s in score.sections for vp in s.voice_parts)
+
+    # Check for known multi-char symbols first
     for sym in _IPA_DESCRIPTIONS:
         if sym in all_ipa:
             symbols.add(sym)
 
+    # Also collect any non-ASCII characters that might not be in our descriptions
+    for char in all_ipa:
+        if char not in " \t\n" and not char.isascii():
+            symbols.add(char)
+
     return symbols
+
+
+def _find_example(symbol: str, score: TranscribedScore, used_words: set[str]) -> str:
+    """Find an example word from the score that contains the given IPA symbol.
+
+    Prefers words not already used as examples for other symbols to ensure
+    diverse, illustrative examples across the glossary.
+    """
+    # First pass: find a word not yet used
+    for section in score.sections:
+        for vp in section.voice_parts:
+            ipa_words = vp.ipa.split()
+            text_words = vp.text.split()
+            for i, ipa_word in enumerate(ipa_words):
+                if symbol in ipa_word:
+                    orig = text_words[i] if i < len(text_words) else ""
+                    if orig and orig.lower() not in used_words:
+                        used_words.add(orig.lower())
+                        return f"{orig} [{ipa_word}]"
+
+    # Second pass: allow reuse if no unique word found
+    for section in score.sections:
+        for vp in section.voice_parts:
+            ipa_words = vp.ipa.split()
+            text_words = vp.text.split()
+            for i, ipa_word in enumerate(ipa_words):
+                if symbol in ipa_word:
+                    orig = text_words[i] if i < len(text_words) else ""
+                    if orig:
+                        return f"{orig} [{ipa_word}]"
+                    return f"[{ipa_word}]"
+    return ""
 
 
 def _build_glossary(score: TranscribedScore) -> str:
@@ -62,10 +96,6 @@ def _build_glossary(score: TranscribedScore) -> str:
     symbols = _collect_symbols(score)
     if not symbols:
         return ""
-
-    # Find example words for each symbol
-    all_ipa = " ".join(vp.ipa for s in score.sections for vp in s.voice_parts)
-    all_text = " ".join(vp.text for s in score.sections for vp in s.voice_parts)
 
     lines = [
         "## IPA Symbol Reference",
@@ -80,28 +110,48 @@ def _build_glossary(score: TranscribedScore) -> str:
         key=lambda s: (-len(s), s),
     )
 
+    used_words: set[str] = set()
     for sym in sorted_symbols:
         desc = _IPA_DESCRIPTIONS[sym]
-        # Find an example word containing this symbol
-        example = _find_example(sym, score)
+        example = _find_example(sym, score, used_words)
         lines.append(f"| {sym} | {desc} | {example} |")
+
+    # Report any symbols in the output that aren't in the descriptions
+    undocumented = symbols - set(_IPA_DESCRIPTIONS.keys())
+    # Filter out combining characters and stress marks already covered
+    undocumented = {s for s in undocumented if len(s) == 1 and s not in "ːˈˌ\u032f"}
+    if undocumented:
+        for sym in sorted(undocumented):
+            lines.append(f"| {sym} | *(undocumented)* | |")
 
     return "\n".join(lines)
 
 
-def _find_example(symbol: str, score: TranscribedScore) -> str:
-    """Find an example word from the score that contains the given IPA symbol."""
-    for section in score.sections:
-        for vp in section.voice_parts:
-            ipa_words = vp.ipa.split()
-            text_words = vp.text.split()
-            for i, ipa_word in enumerate(ipa_words):
-                if symbol in ipa_word:
-                    orig = text_words[i] if i < len(text_words) else ""
-                    if orig:
-                        return f"{orig} [{ipa_word}]"
-                    return f"[{ipa_word}]"
-    return ""
+def _group_voice_parts(section: TranscribedSection) -> list[tuple[str, str, str]]:
+    """Group voice parts that share identical text and IPA.
+
+    Returns a list of (group_label, text, ipa) tuples.
+    """
+    if section.all_parts_same and section.voice_parts:
+        vp = section.voice_parts[0]
+        return [("All parts", vp.text, vp.ipa)]
+
+    # Group by (text, ipa) content
+    groups: dict[tuple[str, str], list[str]] = {}
+    for vp in section.voice_parts:
+        key = (vp.text, vp.ipa)
+        if key not in groups:
+            groups[key] = []
+        groups[key].append(vp.name)
+
+    result = []
+    for (text, ipa), names in groups.items():
+        if len(names) == len(section.voice_parts):
+            label = "All parts"
+        else:
+            label = ", ".join(names)
+        result.append((label, text, ipa))
+    return result
 
 
 def format_markdown(score: TranscribedScore) -> str:
@@ -132,24 +182,27 @@ def format_markdown(score: TranscribedScore) -> str:
     lines.append("---")
     lines.append("")
 
-    # Sections
+    # Group sections by page number
+    current_page = None
     for section in score.sections:
-        lines.append(f"### Section: {section.name}")
-        lines.append("")
-
-        if section.all_parts_same and section.voice_parts:
-            # All parts share the same text
-            vp = section.voice_parts[0]
-            lines.append("**All parts:**")
-            lines.append(f"{vp.text}")
-            lines.append(f"[{vp.ipa}]")
+        page = section.page_number
+        if page is not None and page != current_page:
+            current_page = page
+            lines.append(f"### Page {page}")
             lines.append("")
-        else:
-            for vp in section.voice_parts:
-                lines.append(f"**{vp.name}:**")
-                lines.append(f"{vp.text}")
-                lines.append(f"[{vp.ipa}]")
-                lines.append("")
+
+        # Section annotation (rehearsal number / tempo marking)
+        if section.name:
+            lines.append(f"**[{section.name}]**")
+            lines.append("")
+
+        # Voice parts — grouped by identical content
+        grouped = _group_voice_parts(section)
+        for label, text, ipa in grouped:
+            lines.append(f"**{label}:**")
+            lines.append(f"{text}")
+            lines.append(f"[{ipa}]")
+            lines.append("")
 
         lines.append("---")
         lines.append("")

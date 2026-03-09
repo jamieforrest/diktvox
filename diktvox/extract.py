@@ -17,17 +17,27 @@ You are an expert choral score reader. Given an image of one page from a choral 
 Instructions:
 1. If this page contains title, composer, or edition information, include it.
 2. Detect the language of the sung text.
-3. Extract the sung text per voice part (Soprano, Alto, Tenor, Bass, or whatever parts are present), \
-organized by rehearsal number or section. Reconstruct full words from syllable breaks \
-(e.g., "Auf - er - steh'n" → "Aufersteh'n"). Preserve punctuation and apostrophes.
-4. If this is a well-known work, cross-reference the text against the known source text rather than \
+3. The PDF page number will be provided — include it in the "page_number" field of every section.
+4. Extract the sung text per voice part (Soprano, Alto, Tenor, Bass, or whatever parts are present). \
+Reconstruct full words from syllable breaks (e.g., "Auf - er - steh'n" → "Aufersteh'n"). \
+Preserve punctuation and apostrophes.
+5. If this is a well-known work, cross-reference the text against the known source text rather than \
 relying purely on visual OCR (choral score OCR is unreliable due to syllable breaks, hyphens, and \
-interleaved notation).
-5. Where voice parts share identical text in a section, set all_parts_same to true and provide \
-the text under a single voice part named "All". Where parts diverge, list each part separately.
-6. If a section continues from a previous page, name it with a "(continued)" suffix, \
+interleaved notation). Fill in any gaps or correct OCR errors using the canonical text.
+6. Include rehearsal numbers and tempo/expression markings (e.g., "Langsam. Misterioso.") in the \
+section name when they are clearly visible in the score. If no rehearsal number is clearly associated \
+with the text, leave the name empty — do NOT invent labels like "Section 1" or "Continuing Text".
+7. Where voice parts share identical text in a section, set all_parts_same to true and provide \
+the text under a single voice part named "All". Where parts diverge, group parts that share \
+identical text together (e.g., "Soprano, Alto" as the name) and list differing groups separately.
+8. If a section continues from a previous page, name it with a "(continued)" suffix, \
 e.g., "Verse 1 (continued)".
-7. If the page has no sung text (e.g., purely instrumental), return an empty sections list.
+9. Continuous phrases that span a system break on the same page should stay together in one section, \
+not be split into separate sections.
+10. If the page has no sung text (e.g., purely instrumental), return an empty sections list.
+11. Flag any text you are uncertain about with [?] rather than guessing.
+12. Ensure text is complete — do not truncate passages. If a passage continues beyond the visible \
+page, include all text that IS visible.
 
 Respond with valid JSON only, using this schema:
 {
@@ -37,10 +47,11 @@ Respond with valid JSON only, using this schema:
   "language": "ISO 639-1 code or empty",
   "sections": [
     {
-      "name": "section name or rehearsal number",
+      "name": "rehearsal number and/or tempo marking, or empty",
+      "page_number": <integer PDF page number>,
       "all_parts_same": true/false,
       "voice_parts": [
-        {"name": "Soprano|Alto|Tenor|Bass|All", "text": "full reconstructed text"}
+        {"name": "Soprano|Alto|Tenor|Bass|All|Soprano, Alto|etc.", "text": "full reconstructed text"}
       ]
     }
   ]
@@ -79,6 +90,7 @@ def _parse_response(data: dict) -> ScoreData:
             name=s.get("name", ""),
             voice_parts=parts,
             all_parts_same=s.get("all_parts_same", False),
+            page_number=s.get("page_number"),
         ))
     return ScoreData(
         title=data.get("title", ""),
@@ -172,6 +184,7 @@ def _merge_page_results(page_results: list[dict]) -> dict:
 
             merged_sections.append({
                 "name": base_name if continued else name,
+                "page_number": section.get("page_number"),
                 "all_parts_same": section.get("all_parts_same", False),
                 "voice_parts": list(section.get("voice_parts", [])),
             })
