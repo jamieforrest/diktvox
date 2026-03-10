@@ -95,6 +95,78 @@ class TestLLMBackend:
         assert result.sections[1].voice_parts[0].ipa == "jˈaː"
 
 
+class TestLatinEspeakBackend:
+    @patch("diktvox.ipa.espeak.subprocess.run")
+    @patch("diktvox.ipa.espeak.shutil.which", return_value="/usr/bin/espeak-ng")
+    def test_espeak_transcribe_latin(self, mock_which, mock_run):
+        score = ScoreData(
+            title="Test", language="la",
+            sections=[
+                Section(
+                    name="S1", all_parts_same=True,
+                    voice_parts=[VoicePart(name="All", text="Gloria in excelsis Deo")],
+                ),
+            ],
+        )
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="ɡlˈoria in ɛkstʃˈɛlsis dˈeo\n",
+            stderr="",
+        )
+        result = transcribe(score, backend="espeak", language="la", rules_path=None)
+        assert result.sections[0].voice_parts[0].ipa != ""
+        # espeak should be called with -v la
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args[0][0]
+        assert "-v" in call_args
+        assert "la" in call_args
+
+
+class TestLatinLLMBackend:
+    @patch("diktvox.ipa.llm.litellm")
+    def test_llm_transcribe_latin(self, mock_litellm):
+        import json
+        score = ScoreData(
+            title="Test", language="la",
+            sections=[
+                Section(
+                    name="S1", all_parts_same=True,
+                    voice_parts=[VoicePart(name="All", text="Sanctus")],
+                ),
+            ],
+        )
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = json.dumps(
+            {"results": ["ˈsanktus"]}
+        )
+        mock_litellm.completion.return_value = mock_response
+        result = transcribe(score, backend="llm", language="la", rules_path=None, model="test-model")
+        assert result.sections[0].voice_parts[0].ipa != ""
+
+    @patch("diktvox.ipa.llm.litellm")
+    def test_llm_system_prompt_includes_latin(self, mock_litellm):
+        """LLM system prompt should include Ecclesiastical Latin conventions."""
+        import json
+        score = ScoreData(
+            title="T", language="la",
+            sections=[
+                Section(
+                    name="S", all_parts_same=True,
+                    voice_parts=[VoicePart(name="All", text="Deo")],
+                ),
+            ],
+        )
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = json.dumps({"results": ["deo"]})
+        mock_litellm.completion.return_value = mock_response
+        transcribe(score, backend="llm", language="la", rules_path=None, model="m")
+        call_args = mock_litellm.completion.call_args
+        system_msg = call_args.kwargs["messages"][0]["content"]
+        assert "Ecclesiastical" in system_msg or "Church Latin" in system_msg
+
+
 class TestLLMJsonParsing:
     """Test that the JSON parser handles various LLM response formats."""
 

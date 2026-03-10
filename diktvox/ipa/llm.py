@@ -7,19 +7,37 @@ import time
 import click
 import litellm
 
-_SYSTEM_PROMPT = """\
+_LANGUAGE_CONVENTIONS = {
+    "de": (
+        "- For German: use standard sung German conventions (rolled r at word start, "
+        "vocalized r in final -er, ich-laut after front vowels, ach-laut after back vowels, etc.)"
+    ),
+    "la": (
+        "- For Latin: use Ecclesiastical (Church) Latin pronunciation conventions. "
+        "Italian-style pure vowels. 'c' before e/i = [tʃ], before a/o/u = [k]. "
+        "'g' before e/i = [dʒ], before a/o/u = [ɡ]. 'gn' = [ɲ]. "
+        "'sc' before e/i = [ʃ]. 'ti' before a vowel (not after s/x/t) = [tsi]. "
+        "'ae'/'oe' = [e]. 'h' is silent. 'ph' = [f]. 'th' = [t]. 'ch' = [k]. "
+        "'v' = [v]. 'j' = [j]. 'r' = alveolar trill [r]. Double consonants are lengthened."
+    ),
+}
+
+
+def _build_system_prompt(language: str) -> str:
+    """Build a language-specific system prompt for IPA transcription."""
+    convention = _LANGUAGE_CONVENTIONS.get(language, "")
+    return f"""\
 You are an expert in IPA (International Phonetic Alphabet) transcription for sung text.
 
 Given numbered text lines and a language, produce an accurate IPA transcription for each line.
 Apply standard singing diction conventions:
-- For German: use standard sung German conventions (rolled r at word start, vocalized r in \
-final -er, ich-laut after front vowels, ach-laut after back vowels, etc.)
+{convention}
 - Include stress marks: use [ˈ] for primary stress and [ˌ] for secondary stress before the \
 stressed syllable.
 - Preserve word boundaries with spaces.
 
 Respond with valid JSON only, no markdown fencing or explanation. Use this exact format:
-{"results": ["ipa line 1", "ipa line 2", ...]}
+{{"results": ["ipa line 1", "ipa line 2", ...]}}
 """
 
 _MAX_RETRIES = 4
@@ -93,7 +111,7 @@ def llm_transcribe_batch(texts: list[str], *, lang: str, model: str) -> list[str
             response = litellm.completion(
                 model=model,
                 messages=[
-                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "system", "content": _build_system_prompt(lang)},
                     {"role": "user", "content": user_content},
                 ],
                 temperature=0.0,

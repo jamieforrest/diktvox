@@ -39,6 +39,9 @@ _IPA_DESCRIPTIONS: dict[str, str] = {
     "ɡ": "hard g",
     "ts": '"ts" in "cats"',
     "pf": '"pf" in "Pferd"',
+    "tʃ": '"ch" in "church"',
+    "dʒ": '"j" in "judge"',
+    "ɲ": '"gn" in Italian "gnocchi"',
 }
 
 

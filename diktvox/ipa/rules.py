@@ -126,6 +126,10 @@ def _check_position(ipa_word: str, match_start: int, match_end: int, position: s
         return match_start > 0 and ipa_word[match_start - 1] in _FRONT_VOWELS
     elif position == "after_back_vowel":
         return match_start > 0 and ipa_word[match_start - 1] in _BACK_VOWELS
+    elif position == "before_front_vowel":
+        return match_end < len(ipa_word) and ipa_word[match_end] in _FRONT_VOWELS
+    elif position == "before_back_vowel":
+        return match_end < len(ipa_word) and ipa_word[match_end] in _BACK_VOWELS
     elif position == "before_liquid":
         return match_end < len(ipa_word) and ipa_word[match_end] in _LIQUIDS
     elif position == "syllable_final":

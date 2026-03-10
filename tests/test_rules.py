@@ -277,6 +277,63 @@ class TestStressMarkHandling:
         assert result == "ˌʔaʊ̯f"
 
 
+class TestLoadLatinRules:
+    def test_load_default_latin(self):
+        rules_path = pathlib.Path(__file__).resolve().parent.parent / "rules" / "la_standard.yaml"
+        rules = load_rules(rules_path)
+        assert rules.language == "la"
+        assert rules.name == "Ecclesiastical (Church) Latin"
+        assert len(rules.substitutions) > 0
+        assert len(rules.contextual) > 0
+
+
+class TestBeforeFrontVowelPosition:
+    def test_before_front_vowel_match(self):
+        """k before front vowel should be replaced (e.g., Latin 'caeli')."""
+        rules = Rules(
+            processing_order=["contextual"],
+            contextual=[
+                ContextualRule(match="k", position="before_front_vowel", replace="tʃ"),
+            ],
+        )
+        result = apply_rules("keli", "caeli", rules)
+        assert result == "tʃeli"
+
+    def test_before_back_vowel_no_match(self):
+        """k before back vowel should NOT be changed by before_front_vowel rule."""
+        rules = Rules(
+            processing_order=["contextual"],
+            contextual=[
+                ContextualRule(match="k", position="before_front_vowel", replace="tʃ"),
+            ],
+        )
+        result = apply_rules("karo", "caro", rules)
+        assert result == "karo"
+
+    def test_g_before_front_vowel(self):
+        """ɡ before front vowel should be replaced (e.g., Latin 'gentes')."""
+        rules = Rules(
+            processing_order=["contextual"],
+            contextual=[
+                ContextualRule(match="ɡ", position="before_front_vowel", replace="dʒ"),
+            ],
+        )
+        result = apply_rules("ɡentes", "gentes", rules)
+        assert result == "dʒentes"
+
+    def test_before_back_vowel_position(self):
+        """Test the before_back_vowel position type."""
+        rules = Rules(
+            processing_order=["contextual"],
+            contextual=[
+                ContextualRule(match="k", position="before_back_vowel", replace="k"),
+            ],
+        )
+        # k before 'a' (back vowel) should match
+        result = apply_rules("karo", "caro", rules)
+        assert result == "karo"
+
+
 class TestLabiodentalApproximant:
     """Test ʋ → v substitution for sung German."""
 

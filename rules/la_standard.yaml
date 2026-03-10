@@ -1,0 +1,34 @@
+language: la
+name: "Ecclesiastical (Church) Latin"
+description: "Singing conventions for Church Latin, following Italian pronunciation tradition"
+
+# Explicit processing order — last tier wins on conflicts
+processing_order:
+  - substitutions
+  - contextual
+  - overrides
+
+# Tier 1: Simple phoneme-to-phoneme replacements
+# Correct espeak Classical Latin output to Church Latin
+substitutions:
+  "w": "v"    # Classical [w] for 'v' → Church Latin [v]
+  "kʰ": "k"  # aspirated 'ch' → plain [k]
+  "tʰ": "t"  # aspirated 'th' → plain [t]
+
+# Tier 2: Position-dependent rules
+contextual:
+  # 'c' before front vowels should be [tʃ] not [k]
+  - match: "k"
+    position: before_front_vowel
+    replace: "tʃ"
+    enabled: true
+
+  # 'g' before front vowels should be [dʒ] not [ɡ]
+  - match: "ɡ"
+    position: before_front_vowel
+    replace: "dʒ"
+    enabled: true
+
+# Tier 3: Word-level overrides (highest priority)
+# Populate as needed with real-world testing
+overrides: {}

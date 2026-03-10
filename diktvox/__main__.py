@@ -16,7 +16,7 @@ from diktvox.pdf import render_pages
 @click.command()
 @click.argument("pdf_path", type=click.Path(exists=True, path_type=pathlib.Path))
 @click.option("-o", "--output", type=click.Path(path_type=pathlib.Path), default=None, help="Output file path. Defaults to stdout.")
-@click.option("--language", default="de", help="Language code (default: de). v1 supports German only.")
+@click.option("--language", default="de", help="Language code (default: de). Supported: de (German), la (Latin).")
 @click.option("--ipa-backend", type=click.Choice(["espeak", "llm"]), default="espeak", help="IPA transcription backend.")
 @click.option("--rules", "rules_path", type=click.Path(exists=True, path_type=pathlib.Path), default=None, help="Custom YAML rules file for singing conventions.")
 @click.option("--model", default="anthropic/claude-sonnet-4-20250514", help="LiteLLM model for text extraction (vision-capable).")
@@ -35,8 +35,12 @@ def cli(
     no_cache: bool,
 ) -> None:
     """Generate an IPA companion document from a choral score PDF."""
-    if language != "de":
-        raise click.ClickException(f"Language '{language}' is not yet supported. v1 supports German only.")
+    _SUPPORTED_LANGUAGES = {"de", "la"}
+    if language not in _SUPPORTED_LANGUAGES:
+        raise click.ClickException(
+            f"Language '{language}' is not yet supported. "
+            f"Supported: {', '.join(sorted(_SUPPORTED_LANGUAGES))}."
+        )
 
     # Resolve IPA model: explicit --ipa-model, or fall back to --model
     resolved_ipa_model = ipa_model or model
