@@ -156,6 +156,30 @@ def _stamp_page_numbers(page_result: dict, page_num: int) -> None:
         section["page_number"] = page_num
 
 
+def _extract_all_json_objects(raw: str) -> list[dict]:
+    """Extract all top-level JSON objects from a string.
+
+    Handles responses where the model returns multiple ```json blocks
+    or concatenated JSON objects.
+    """
+    results: list[dict] = []
+    # Remove all markdown fences
+    cleaned = re.sub(r"```(?:json)?\s*\n?", "", raw)
+    decoder = json.JSONDecoder()
+    i = 0
+    while i < len(cleaned):
+        if cleaned[i] == "{":
+            try:
+                obj, end = decoder.raw_decode(cleaned, i)
+                results.append(obj)
+                i = end
+                continue
+            except json.JSONDecodeError:
+                pass
+        i += 1
+    return results
+
+
 def _parse_json(raw: str, page_num: int) -> dict:
     """Parse JSON from an LLM response, handling markdown fences and preamble.
 
@@ -178,14 +202,14 @@ def _parse_json(raw: str, page_num: int) -> dict:
     except json.JSONDecodeError as e:
         last_error = e
 
-    # Last resort: find outermost braces
-    start = raw.find("{")
-    end = raw.rfind("}")
-    if start != -1 and end > start:
-        try:
-            return json.loads(raw[start : end + 1])
-        except json.JSONDecodeError as e:
-            last_error = e
+    # Try to find and merge multiple JSON objects (model sometimes returns
+    # several ```json blocks for a single page)
+    objects = _extract_all_json_objects(raw)
+    if objects:
+        merged = objects[0]
+        for obj in objects[1:]:
+            merged.setdefault("sections", []).extend(obj.get("sections", []))
+        return merged
 
     head = raw[:200] + ("..." if len(raw) > 200 else "")
     tail = ("..." + raw[-200:]) if len(raw) > 400 else ""

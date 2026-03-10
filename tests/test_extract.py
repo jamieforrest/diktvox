@@ -250,6 +250,24 @@ class TestParseJson:
         result = _parse_json(raw, 15)
         assert result["sections"][0]["name"] == "48"
 
+    def test_multiple_json_blocks(self):
+        """Model sometimes returns two ```json blocks for one page."""
+        block1 = json.dumps({
+            "title": "Test", "composer": "", "edition": "", "language": "de",
+            "sections": [{"name": "1", "all_parts_same": True,
+                          "voice_parts": [{"name": "All", "text": "hello"}]}],
+        }, indent=2)
+        block2 = json.dumps({
+            "title": "Test", "composer": "", "edition": "", "language": "de",
+            "sections": [{"name": "2", "all_parts_same": True,
+                          "voice_parts": [{"name": "All", "text": "world"}]}],
+        }, indent=2)
+        raw = f"```json\n{block1}\n```\n```json\n{block2}\n```"
+        result = _parse_json(raw, 15)
+        assert len(result["sections"]) == 2
+        assert result["sections"][0]["name"] == "1"
+        assert result["sections"][1]["name"] == "2"
+
     def test_invalid_raises(self):
         import click
         with pytest.raises(click.ClickException, match="invalid JSON"):
