@@ -326,6 +326,40 @@ class TestExtractText:
         assert mock_litellm.completion.call_count == 2
 
     @patch("diktvox.extract.litellm")
+    def test_extract_handles_markdown_fenced_json(self, mock_litellm):
+        """LLM responses wrapped in markdown code fences should be parsed."""
+        raw_json = json.dumps({
+            "title": "Test", "composer": "", "edition": "", "language": "de",
+            "sections": [
+                {"name": "31", "all_parts_same": True, "voice_parts": [{"name": "All", "text": "Hello"}]},
+            ],
+        })
+        fenced = f"```json\n{raw_json}\n```"
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = fenced
+        mock_response.choices[0].finish_reason = "stop"
+        mock_litellm.completion.return_value = mock_response
+
+        result = extract_text(["p1"], model="test-model", language="de", use_cache=False)
+
+        assert result.title == "Test"
+        assert result.sections[0].page_number == 1
+
+    @patch("diktvox.extract.litellm")
+    def test_extract_empty_response_raises(self, mock_litellm):
+        """Empty LLM response should raise a clear error."""
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = ""
+        mock_response.choices[0].finish_reason = "stop"
+        mock_litellm.completion.return_value = mock_response
+
+        import click
+        with pytest.raises(click.ClickException, match="empty response"):
+            extract_text(["p1"], model="test-model", language="de", use_cache=False)
+
+    @patch("diktvox.extract.litellm")
     def test_language_mismatch_raises(self, mock_litellm):
         response_data = {
             "title": "Test",

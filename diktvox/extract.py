@@ -14,6 +14,10 @@ from diktvox.models import ScoreData, Section, VoicePart
 
 _CACHE_DIR = pathlib.Path.home() / ".cache" / "diktvox"
 
+# Matches a JSON object containing a "sections" key, handling markdown fences
+# and preamble text that some models produce despite response_format.
+_JSON_EXTRACT_RE = re.compile(r"\{.*\"sections\"\s*:\s*\[.*\]\s*\}", re.DOTALL)
+
 _PAGE_SYSTEM_PROMPT = """\
 You are an expert choral score reader. Given an image of one page from a choral score, extract any sung text visible on this page.
 
@@ -188,12 +192,33 @@ def _extract_page(page_b64: str, page_num: int, total_pages: int, model: str, la
                     f"LLM response truncated on page {page_num} (finish_reason={choice.finish_reason})."
                 )
 
-            try:
-                data = json.loads(choice.message.content)
-            except json.JSONDecodeError as e:
+            raw = (choice.message.content or "").strip()
+            if not raw:
                 raise click.ClickException(
-                    f"LLM returned invalid JSON for page {page_num}: {e}. "
+                    f"LLM returned empty response for page {page_num}. "
                     f"Try re-running with --no-cache or a different model."
+                )
+
+            # Try direct parse first, then extract from markdown fences / preamble
+            try:
+                data = json.loads(raw)
+            except json.JSONDecodeError:
+                match = _JSON_EXTRACT_RE.search(raw)
+                if match:
+                    try:
+                        data = json.loads(match.group())
+                    except json.JSONDecodeError:
+                        data = None
+                else:
+                    data = None
+
+            if data is None:
+                # Show a snippet of the response for debugging
+                snippet = raw[:200] + ("..." if len(raw) > 200 else "")
+                raise click.ClickException(
+                    f"LLM returned invalid JSON for page {page_num}. "
+                    f"Try re-running with --no-cache or a different model.\n"
+                    f"Response started with: {snippet}"
                 )
 
             # Stamp page numbers and normalize section names
@@ -202,6 +227,8 @@ def _extract_page(page_b64: str, page_num: int, total_pages: int, model: str, la
                 section["name"] = _normalize_section_name(section.get("name", ""))
 
             return data
+        except click.ClickException:
+            raise
         except litellm.exceptions.RateLimitError as e:
             last_exc = e
             if attempt < _MAX_RETRIES:
