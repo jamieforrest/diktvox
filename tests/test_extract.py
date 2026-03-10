@@ -5,7 +5,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from diktvox.extract import _merge_page_results, _parse_response, extract_text
+from diktvox.extract import (
+    _merge_page_results,
+    _normalize_section_name,
+    _parse_json,
+    _parse_response,
+    _stamp_page_numbers,
+    extract_text,
+)
 
 
 class TestParseResponse:
@@ -17,14 +24,14 @@ class TestParseResponse:
             "language": "de",
             "sections": [
                 {
-                    "name": "Rehearsal 31",
+                    "name": "31",
                     "all_parts_same": True,
                     "voice_parts": [
                         {"name": "All", "text": "Aufersteh'n, ja aufersteh'n wirst du"}
                     ],
                 },
                 {
-                    "name": "Rehearsal 32",
+                    "name": "32",
                     "all_parts_same": False,
                     "voice_parts": [
                         {"name": "Soprano", "text": "O glaube, mein Herz, o glaube"},
@@ -152,6 +159,126 @@ class TestMergePageResults:
         assert len(merged["sections"]) == 2
 
 
+class TestNormalizeSectionName:
+    def test_rehearsal_prefix_stripped(self):
+        assert _normalize_section_name("Rehearsal 44") == "44"
+
+    def test_rehearsal_prefix_case_insensitive(self):
+        assert _normalize_section_name("rehearsal 12") == "12"
+
+    def test_plain_number_unchanged(self):
+        assert _normalize_section_name("31") == "31"
+
+    def test_number_with_tempo(self):
+        assert _normalize_section_name("31 Langsam. Misterioso.") == "31 Langsam. Misterioso."
+
+    def test_fabricated_section_blanked(self):
+        assert _normalize_section_name("Section 1") == ""
+
+    def test_fabricated_continuing_text_blanked(self):
+        assert _normalize_section_name("Continuing Text") == ""
+
+    def test_fabricated_opening_section_blanked(self):
+        assert _normalize_section_name("Opening Section") == ""
+
+    def test_fabricated_soloists_blanked(self):
+        assert _normalize_section_name("Soloists") == ""
+
+    def test_fabricated_upper_voices_blanked(self):
+        assert _normalize_section_name("Upper Voices") == ""
+
+    def test_fabricated_lower_voices_blanked(self):
+        assert _normalize_section_name("Lower Voices") == ""
+
+    def test_legitimate_tempo_preserved(self):
+        assert _normalize_section_name("Langsam. Misterioso.") == "Langsam. Misterioso."
+
+    def test_empty_stays_empty(self):
+        assert _normalize_section_name("") == ""
+
+    def test_whitespace_stripped(self):
+        assert _normalize_section_name("  44  ") == "44"
+
+
+class TestStampPageNumbers:
+    def test_stamps_all_sections(self):
+        data = {"sections": [
+            {"name": "31", "voice_parts": []},
+            {"name": "32", "voice_parts": []},
+        ]}
+        _stamp_page_numbers(data, 4)
+        assert data["sections"][0]["page_number"] == 4
+        assert data["sections"][1]["page_number"] == 4
+
+    def test_overwrites_existing(self):
+        data = {"sections": [{"name": "31", "page_number": 99, "voice_parts": []}]}
+        _stamp_page_numbers(data, 4)
+        assert data["sections"][0]["page_number"] == 4
+
+    def test_empty_sections(self):
+        data = {"sections": []}
+        _stamp_page_numbers(data, 1)  # should not raise
+
+
+class TestParseJson:
+    def test_plain_json(self):
+        raw = '{"title": "Test", "sections": []}'
+        assert _parse_json(raw, 1) == {"title": "Test", "sections": []}
+
+    def test_markdown_fenced(self):
+        raw = '```json\n{"title": "Test", "sections": []}\n```'
+        assert _parse_json(raw, 1) == {"title": "Test", "sections": []}
+
+    def test_markdown_fenced_no_language(self):
+        raw = '```\n{"title": "Test", "sections": []}\n```'
+        assert _parse_json(raw, 1) == {"title": "Test", "sections": []}
+
+    def test_preamble_text(self):
+        raw = 'Here is the result:\n{"title": "Test", "sections": []}'
+        assert _parse_json(raw, 1) == {"title": "Test", "sections": []}
+
+    def test_multiline_fenced_with_nested_arrays(self):
+        """Regression: the old regex failed on multi-line fenced JSON with nested arrays."""
+        inner = json.dumps({
+            "title": "", "composer": "", "edition": "", "language": "de",
+            "sections": [
+                {"name": "48", "all_parts_same": True,
+                 "voice_parts": [{"name": "All", "text": "Aufersteh'n"}]},
+            ],
+        }, indent=2)
+        raw = f"```json\n{inner}\n```"
+        result = _parse_json(raw, 15)
+        assert result["sections"][0]["name"] == "48"
+
+    def test_multiple_json_blocks(self):
+        """Model sometimes returns two ```json blocks for one page."""
+        block1 = json.dumps({
+            "title": "Test", "composer": "", "edition": "", "language": "de",
+            "sections": [{"name": "1", "all_parts_same": True,
+                          "voice_parts": [{"name": "All", "text": "hello"}]}],
+        }, indent=2)
+        block2 = json.dumps({
+            "title": "Test", "composer": "", "edition": "", "language": "de",
+            "sections": [{"name": "2", "all_parts_same": True,
+                          "voice_parts": [{"name": "All", "text": "world"}]}],
+        }, indent=2)
+        raw = f"```json\n{block1}\n```\n```json\n{block2}\n```"
+        result = _parse_json(raw, 15)
+        assert len(result["sections"]) == 2
+        assert result["sections"][0]["name"] == "1"
+        assert result["sections"][1]["name"] == "2"
+
+    def test_invalid_raises(self):
+        import click
+        with pytest.raises(click.ClickException, match="invalid JSON"):
+            _parse_json("not json at all", 1)
+
+    def test_empty_raises(self):
+        import click
+        with pytest.raises(click.ClickException, match="invalid JSON"):
+            _parse_json("", 1)
+
+
 def _make_mock_response(data: dict) -> MagicMock:
     mock_response = MagicMock()
     mock_response.choices = [MagicMock()]
@@ -170,7 +297,7 @@ class TestExtractText:
             "language": "de",
             "sections": [
                 {
-                    "name": "Section 1",
+                    "name": "31",
                     "all_parts_same": True,
                     "voice_parts": [
                         {"name": "All", "text": "Test text"}
@@ -189,7 +316,50 @@ class TestExtractText:
 
         assert result.title == "Test Piece"
         assert len(result.sections) == 1
+        assert result.sections[0].page_number == 1
+        assert result.sections[0].name == "31"
         mock_litellm.completion.assert_called_once()
+
+    @patch("diktvox.extract.litellm")
+    def test_extract_stamps_page_numbers(self, mock_litellm):
+        """Page numbers should be stamped programmatically, not from LLM."""
+        page1 = {"title": "Piece", "composer": "", "edition": "", "language": "de", "sections": [
+            {"name": "31", "all_parts_same": True, "voice_parts": [{"name": "All", "text": "Hello"}]},
+        ]}
+        page2 = {"title": "", "composer": "", "edition": "", "language": "de", "sections": [
+            {"name": "32", "all_parts_same": True, "voice_parts": [{"name": "All", "text": "World"}]},
+        ]}
+        mock_litellm.completion.side_effect = [
+            _make_mock_response(page1),
+            _make_mock_response(page2),
+        ]
+
+        result = extract_text(
+            ["p1", "p2"],
+            model="test-model",
+            language="de",
+            use_cache=False,
+        )
+
+        assert result.sections[0].page_number == 1
+        assert result.sections[1].page_number == 2
+
+    @patch("diktvox.extract.litellm")
+    def test_extract_normalizes_fabricated_names(self, mock_litellm):
+        """Fabricated section names like 'Section 1' should be blanked."""
+        page_data = {
+            "title": "Piece", "composer": "", "edition": "", "language": "de",
+            "sections": [
+                {"name": "Section 1", "all_parts_same": True, "voice_parts": [{"name": "All", "text": "Hello"}]},
+                {"name": "Rehearsal 44", "all_parts_same": True, "voice_parts": [{"name": "All", "text": "World"}]},
+            ],
+        }
+        mock_litellm.completion.return_value = _make_mock_response(page_data)
+
+        result = extract_text(["p1"], model="test-model", language="de", use_cache=False)
+
+        assert result.sections[0].name == ""
+        assert result.sections[1].name == "44"
 
     @patch("diktvox.extract.litellm")
     def test_extract_multiple_pages(self, mock_litellm):
@@ -214,6 +384,40 @@ class TestExtractText:
         assert result.title == "Piece"
         assert len(result.sections) == 2
         assert mock_litellm.completion.call_count == 2
+
+    @patch("diktvox.extract.litellm")
+    def test_extract_handles_markdown_fenced_json(self, mock_litellm):
+        """LLM responses wrapped in markdown code fences should be parsed."""
+        raw_json = json.dumps({
+            "title": "Test", "composer": "", "edition": "", "language": "de",
+            "sections": [
+                {"name": "31", "all_parts_same": True, "voice_parts": [{"name": "All", "text": "Hello"}]},
+            ],
+        })
+        fenced = f"```json\n{raw_json}\n```"
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = fenced
+        mock_response.choices[0].finish_reason = "stop"
+        mock_litellm.completion.return_value = mock_response
+
+        result = extract_text(["p1"], model="test-model", language="de", use_cache=False)
+
+        assert result.title == "Test"
+        assert result.sections[0].page_number == 1
+
+    @patch("diktvox.extract.litellm")
+    def test_extract_empty_response_raises(self, mock_litellm):
+        """Empty LLM response should raise a clear error."""
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = ""
+        mock_response.choices[0].finish_reason = "stop"
+        mock_litellm.completion.return_value = mock_response
+
+        import click
+        with pytest.raises(click.ClickException, match="empty response"):
+            extract_text(["p1"], model="test-model", language="de", use_cache=False)
 
     @patch("diktvox.extract.litellm")
     def test_language_mismatch_raises(self, mock_litellm):
