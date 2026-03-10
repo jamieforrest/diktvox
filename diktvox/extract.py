@@ -162,19 +162,21 @@ def _parse_json(raw: str, page_num: int) -> dict:
     Some models wrap their JSON in ```json ... ``` fences or add preamble
     text even when response_format=json_object is set.
     """
+    last_error: json.JSONDecodeError | None = None
+
     # Try direct parse first
     try:
         return json.loads(raw)
-    except json.JSONDecodeError:
-        pass
+    except json.JSONDecodeError as e:
+        last_error = e
 
     # Strip markdown code fences: ```json ... ``` or ``` ... ```
     stripped = re.sub(r"^```(?:json)?\s*\n?", "", raw, count=1)
     stripped = re.sub(r"\n?```\s*$", "", stripped, count=1)
     try:
         return json.loads(stripped)
-    except json.JSONDecodeError:
-        pass
+    except json.JSONDecodeError as e:
+        last_error = e
 
     # Last resort: find outermost braces
     start = raw.find("{")
@@ -182,14 +184,17 @@ def _parse_json(raw: str, page_num: int) -> dict:
     if start != -1 and end > start:
         try:
             return json.loads(raw[start : end + 1])
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as e:
+            last_error = e
 
-    snippet = raw[:200] + ("..." if len(raw) > 200 else "")
+    head = raw[:200] + ("..." if len(raw) > 200 else "")
+    tail = ("..." + raw[-200:]) if len(raw) > 400 else ""
     raise click.ClickException(
         f"LLM returned invalid JSON for page {page_num}. "
         f"Try re-running with --no-cache or a different model.\n"
-        f"Response started with: {snippet}"
+        f"Parse error: {last_error}\n"
+        f"Response ({len(raw)} chars) started with: {head}"
+        + (f"\nResponse ended with: {tail}" if tail else "")
     )
 
 
