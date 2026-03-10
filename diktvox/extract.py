@@ -14,10 +14,6 @@ from diktvox.models import ScoreData, Section, VoicePart
 
 _CACHE_DIR = pathlib.Path.home() / ".cache" / "diktvox"
 
-# Matches a JSON object containing a "sections" key, handling markdown fences
-# and preamble text that some models produce despite response_format.
-_JSON_EXTRACT_RE = re.compile(r"\{.*\"sections\"\s*:\s*\[.*\]\s*\}", re.DOTALL)
-
 _PAGE_SYSTEM_PROMPT = """\
 You are an expert choral score reader. Given an image of one page from a choral score, extract any sung text visible on this page.
 
@@ -160,6 +156,43 @@ def _stamp_page_numbers(page_result: dict, page_num: int) -> None:
         section["page_number"] = page_num
 
 
+def _parse_json(raw: str, page_num: int) -> dict:
+    """Parse JSON from an LLM response, handling markdown fences and preamble.
+
+    Some models wrap their JSON in ```json ... ``` fences or add preamble
+    text even when response_format=json_object is set.
+    """
+    # Try direct parse first
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+
+    # Strip markdown code fences: ```json ... ``` or ``` ... ```
+    stripped = re.sub(r"^```(?:json)?\s*\n?", "", raw, count=1)
+    stripped = re.sub(r"\n?```\s*$", "", stripped, count=1)
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError:
+        pass
+
+    # Last resort: find outermost braces
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start != -1 and end > start:
+        try:
+            return json.loads(raw[start : end + 1])
+        except json.JSONDecodeError:
+            pass
+
+    snippet = raw[:200] + ("..." if len(raw) > 200 else "")
+    raise click.ClickException(
+        f"LLM returned invalid JSON for page {page_num}. "
+        f"Try re-running with --no-cache or a different model.\n"
+        f"Response started with: {snippet}"
+    )
+
+
 _MAX_RETRIES = 4
 _BACKOFF_DELAYS = [2, 4, 8, 16]
 
@@ -199,27 +232,7 @@ def _extract_page(page_b64: str, page_num: int, total_pages: int, model: str, la
                     f"Try re-running with --no-cache or a different model."
                 )
 
-            # Try direct parse first, then extract from markdown fences / preamble
-            try:
-                data = json.loads(raw)
-            except json.JSONDecodeError:
-                match = _JSON_EXTRACT_RE.search(raw)
-                if match:
-                    try:
-                        data = json.loads(match.group())
-                    except json.JSONDecodeError:
-                        data = None
-                else:
-                    data = None
-
-            if data is None:
-                # Show a snippet of the response for debugging
-                snippet = raw[:200] + ("..." if len(raw) > 200 else "")
-                raise click.ClickException(
-                    f"LLM returned invalid JSON for page {page_num}. "
-                    f"Try re-running with --no-cache or a different model.\n"
-                    f"Response started with: {snippet}"
-                )
+            data = _parse_json(raw, page_num)
 
             # Stamp page numbers and normalize section names
             _stamp_page_numbers(data, page_num)

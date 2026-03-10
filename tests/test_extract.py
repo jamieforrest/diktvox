@@ -8,6 +8,7 @@ import pytest
 from diktvox.extract import (
     _merge_page_results,
     _normalize_section_name,
+    _parse_json,
     _parse_response,
     _stamp_page_numbers,
     extract_text,
@@ -217,6 +218,47 @@ class TestStampPageNumbers:
     def test_empty_sections(self):
         data = {"sections": []}
         _stamp_page_numbers(data, 1)  # should not raise
+
+
+class TestParseJson:
+    def test_plain_json(self):
+        raw = '{"title": "Test", "sections": []}'
+        assert _parse_json(raw, 1) == {"title": "Test", "sections": []}
+
+    def test_markdown_fenced(self):
+        raw = '```json\n{"title": "Test", "sections": []}\n```'
+        assert _parse_json(raw, 1) == {"title": "Test", "sections": []}
+
+    def test_markdown_fenced_no_language(self):
+        raw = '```\n{"title": "Test", "sections": []}\n```'
+        assert _parse_json(raw, 1) == {"title": "Test", "sections": []}
+
+    def test_preamble_text(self):
+        raw = 'Here is the result:\n{"title": "Test", "sections": []}'
+        assert _parse_json(raw, 1) == {"title": "Test", "sections": []}
+
+    def test_multiline_fenced_with_nested_arrays(self):
+        """Regression: the old regex failed on multi-line fenced JSON with nested arrays."""
+        inner = json.dumps({
+            "title": "", "composer": "", "edition": "", "language": "de",
+            "sections": [
+                {"name": "48", "all_parts_same": True,
+                 "voice_parts": [{"name": "All", "text": "Aufersteh'n"}]},
+            ],
+        }, indent=2)
+        raw = f"```json\n{inner}\n```"
+        result = _parse_json(raw, 15)
+        assert result["sections"][0]["name"] == "48"
+
+    def test_invalid_raises(self):
+        import click
+        with pytest.raises(click.ClickException, match="invalid JSON"):
+            _parse_json("not json at all", 1)
+
+    def test_empty_raises(self):
+        import click
+        with pytest.raises(click.ClickException, match="invalid JSON"):
+            _parse_json("", 1)
 
 
 def _make_mock_response(data: dict) -> MagicMock:
