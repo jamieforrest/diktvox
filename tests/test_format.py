@@ -284,6 +284,37 @@ class TestGlossaryDiversity:
         if len(example_words) > 1:
             assert len(set(example_words)) > 1, "All symbols should not use the same example word"
 
+    def test_multichar_symbol_masks_component(self):
+        """Single-char symbols should not appear when only present inside multi-char symbols.
+
+        For example, ʃ should not appear if only tʃ is in the output, and
+        ʒ should not appear if only dʒ is in the output.
+        """
+        score = TranscribedScore(
+            title="Test",
+            sections=[
+                TranscribedSection(
+                    name="S1",
+                    voice_parts=[
+                        TranscribedVoicePart(
+                            name="All",
+                            text="cruce vírgine",
+                            ipa="krˈʊtʃɛ vˈirdʒine",
+                        )
+                    ],
+                ),
+            ],
+        )
+        md = format_markdown(score)
+        glossary_lines = [l for l in md.split("\n") if l.startswith("| ") and "Sounds like" not in l]
+        symbols_in_glossary = {l.split("|")[1].strip() for l in glossary_lines}
+        # tʃ and dʒ should be present
+        assert "tʃ" in symbols_in_glossary
+        assert "dʒ" in symbols_in_glossary
+        # ʃ and ʒ should NOT be present (only appear inside tʃ and dʒ)
+        assert "ʃ" not in symbols_in_glossary
+        assert "ʒ" not in symbols_in_glossary
+
     def test_short_o_umlaut_in_glossary(self):
         """The [ø] symbol should appear in the glossary, not as undocumented."""
         score = TranscribedScore(

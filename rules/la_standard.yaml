@@ -14,6 +14,8 @@ substitutions:
   "w": "v"    # Classical [w] for 'v' → Church Latin [v]
   "kʰ": "k"  # aspirated 'ch' → plain [k]
   "tʰ": "t"  # aspirated 'th' → plain [t]
+  "aɪ": "ɛ"  # Classical 'ae' diphthong [aɪ] → Ecclesiastical [ɛ]
+  "ɔɪ": "e"  # Classical 'oe' diphthong [ɔɪ] → Ecclesiastical [e]
 
 # Tier 2: Position-dependent rules
 contextual:
