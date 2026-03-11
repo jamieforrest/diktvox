@@ -1,6 +1,6 @@
 # diktvox
 
-IPA transcription companion for choral singers. Feed it a PDF score, get back a formatted guide with the original text, stress-marked IPA phonemes organized by voice part, and an auto-generated IPA symbol glossary. Supports configurable sung-language conventions (vocalized r, glottal onsets, alveolar trill, etc.) via YAML rules files. German first, more languages coming.
+IPA transcription companion for choral singers. Feed it a PDF score, get back a formatted guide with the original text, stress-marked IPA phonemes organized by voice part, and an auto-generated IPA symbol glossary. Supports configurable sung-language conventions (vocalized r, glottal onsets, alveolar trill, etc.) via YAML rules files. Currently supports German and Latin (Ecclesiastical).
 
 ## Requirements
 
@@ -97,7 +97,7 @@ diktvox score.pdf -o output.md
 # Full options
 diktvox score.pdf \
   --output output.md \
-  --language de \
+  --language de \          # or 'la' for Latin
   --ipa-backend espeak \
   --rules rules/de_standard.yaml \
   --model gemini/gemini-2.5-flash \
@@ -112,6 +112,9 @@ diktvox score.pdf --ipa-backend llm --ipa-model openai/gpt-4o -o output.md
 # Skip cache (re-run LLM extraction even if the PDF was processed before)
 diktvox score.pdf --no-cache -o output.md
 
+# Latin score (Ecclesiastical/Church Latin pronunciation)
+diktvox requiem.pdf --language la -o requiem.md
+
 # Compare backends
 diktvox score.pdf --ipa-backend espeak -o espeak_output.md
 diktvox score.pdf --ipa-backend llm -o llm_output.md
@@ -123,7 +126,7 @@ diff espeak_output.md llm_output.md
 | Option | Default | Description |
 |--------|---------|-------------|
 | `-o, --output` | stdout | Output file path |
-| `--language` | `de` | Language code (v1: German only) |
+| `--language` | `de` | Language code: `de` (German), `la` (Latin) |
 | `--ipa-backend` | `espeak` | IPA engine: `espeak` or `llm` |
 | `--rules` | `rules/de_standard.yaml` | Custom YAML rules file for singing conventions |
 | `--model` | `anthropic/claude-sonnet-4-20250514` | LiteLLM model string for text extraction (vision-capable) |
@@ -133,12 +136,19 @@ diff espeak_output.md llm_output.md
 
 ## Singing Convention Rules
 
-Pronunciation rules live in YAML config files. The default German rules are in `rules/de_standard.yaml`. Rules are processed in four tiers (later tiers override earlier ones):
+Pronunciation rules live in YAML config files. Rules are processed in four tiers (later tiers override earlier ones):
 
-1. **Substitutions** — simple phoneme swaps (e.g., uvular fricative → uvular trill, ʋ → v for sung German "w")
-2. **Contextual** — position-dependent rules (e.g., vocalized r in final -er, alveolar trill at word start, Auslautverhärtung fixes before liquids)
+1. **Substitutions** — simple phoneme swaps (e.g., uvular fricative → uvular trill)
+2. **Contextual** — position-dependent rules (e.g., vocalized r in final -er, c/g softening before front vowels)
 3. **Insertions** — add phonemes (e.g., glottal stops before word-initial vowels)
 4. **Overrides** — word-level overrides (highest priority)
+
+Built-in rules files:
+
+| File | Language | Conventions |
+|------|----------|-------------|
+| `rules/de_standard.yaml` | German | Rolled r, vocalized -er, ich/ach-laut, glottal onsets |
+| `rules/la_standard.yaml` | Latin | Ecclesiastical (Church) pronunciation: Italian-style c/g softening, ae/oe monophthongization, silent h |
 
 Pass a custom rules file with `--rules my_rules.yaml`. Conductors can share rule files with their ensembles.
 
