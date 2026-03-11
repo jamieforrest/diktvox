@@ -400,7 +400,7 @@ def extract_text(
     if detected != language:
         raise click.ClickException(
             f"Detected language '{detected}' does not match expected '{language}'. "
-            f"v1 of diktvox only supports German."
+            f"Check the --language flag."
         )
 
     # Cache the merged result

@@ -39,6 +39,9 @@ _IPA_DESCRIPTIONS: dict[str, str] = {
     "ɡ": "hard g",
     "ts": '"ts" in "cats"',
     "pf": '"pf" in "Pferd"',
+    "tʃ": '"ch" in "church"',
+    "dʒ": '"j" in "judge"',
+    "ɲ": '"gn" in Italian "gnocchi"',
 }
 
 
@@ -47,13 +50,25 @@ def _collect_symbols(score: TranscribedScore) -> set[str]:
     symbols: set[str] = set()
     all_ipa = " ".join(vp.ipa for s in score.sections for vp in s.voice_parts)
 
-    # Check for known multi-char symbols first
+    # Check multi-char symbols first, then mask them so single-char components
+    # aren't falsely detected (e.g., ʃ inside tʃ, or ʒ inside dʒ).
+    multi_char = sorted(
+        (sym for sym in _IPA_DESCRIPTIONS if len(sym) > 1),
+        key=lambda s: -len(s),
+    )
+    masked_ipa = all_ipa
+    for sym in multi_char:
+        if sym in masked_ipa:
+            symbols.add(sym)
+            masked_ipa = masked_ipa.replace(sym, " " * len(sym))
+
+    # Now check single-char symbols against the masked string
     for sym in _IPA_DESCRIPTIONS:
-        if sym in all_ipa:
+        if len(sym) == 1 and sym in masked_ipa:
             symbols.add(sym)
 
     # Also collect any non-ASCII characters that might not be in our descriptions
-    for char in all_ipa:
+    for char in masked_ipa:
         if char not in " \t\n" and not char.isascii():
             symbols.add(char)
 
